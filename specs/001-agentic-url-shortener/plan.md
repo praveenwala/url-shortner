@@ -52,10 +52,13 @@ React 18 (console)
 **Primary Dependencies**: Spring Boot 3 (Web MVC, Bean Validation, Spring Data JPA as the
 single persistence model, Actuator), `springdoc-openapi`; `anthropic` Python SDK
 (`claude-opus-5`, adaptive thinking, beta tool runner, task budgets — server-side web
-search/fetch/code-execution tools explicitly **not** declared), FastAPI; React + Vite
+search/fetch/code-execution tools explicitly **not** declared), FastAPI, **SQLAlchemy Core**
+over `psycopg` (orchestrator database access — Core only, not the ORM; see R3a); React + Vite
 
 **Storage**: PostgreSQL — two databases, two credentials, no cross-database reference:
-`shortener_db` and `orchestrator_db`. Redirect resolution and analytics recording share one
+`shortener_db` and `orchestrator_db`. Access layers: Spring Data JPA in the Java shortener,
+SQLAlchemy Core over `psycopg` in the Python orchestrator (R3a) — both against the same
+approved datastore. Redirect resolution and analytics recording share one
 transaction; analytics *serving* uses a separate connection pool, and redirect events live in a
 simple indexed table with documented retention behaviour (R14). Audit records are
 `INSERT`/`SELECT` only for the orchestrator role — no `UPDATE`, no `DELETE`
@@ -271,8 +274,9 @@ two languages.
 
 ## Recorded risks (accepted at approval)
 
-Both were ruled on by the requirement owner at the Gate II approval and are recorded as
-accepted trade-offs. Neither is an open architecture question.
+All three were ruled on by the requirement owner — the first two at the Gate II approval,
+the third when the provisioning scripts were authorised — and are recorded as accepted
+trade-offs. None is an open architecture question.
 
 **Read-only datastore condition.** Under R14 a redirect cannot outlive a `shortener_db`
 **write** outage: the transaction recording the count commits before the redirect is served,
@@ -282,6 +286,18 @@ uncovered case is a database that can read but not write, in which the redirect 
 than serving uncounted. **Accepted as a known availability trade-off.** Per the approver's
 NFR-002 ruling, this is explicitly not an unresolved architecture question and not grounds for
 introducing a broker or a durable buffer.
+
+**Plaintext password at role provisioning.** `ops/db/provision.sh` keeps password values
+out of argv, the repository, and normal output by passing base64 over stdin, but
+`01-provision-cluster.sql` decodes them server-side and `\gexec` issues
+`CREATE ROLE … PASSWORD '<plaintext>'`. The plaintext reaches the server, and DDL statement
+logging would capture it. **Accepted for this deliverable**, with three operator obligations:
+provision against a cluster that does not log password-bearing role DDL; in production use a
+dedicated secret/credential provisioning mechanism rather than this script; and rotate any
+credential that may have been captured in logs rather than assuming it was not. Client-side
+SCRAM-SHA-256 verifier generation — the durable fix, which transmits no plaintext — is
+**intentionally deferred as operational hardening**, outside the core assignment scope.
+Recorded here so the deferral is a decision, not an omission.
 
 **Per-link counter-write contention.** Every successful redirect updates one row, so a single
 very hot link serialises its own counter updates. Retained as a **measurable performance

@@ -11,7 +11,9 @@ changes to any decision below require their own approval checkpoint (FR-029).
 rejected the first architecture. R13 is new. R2, R6–R9, R11, and R12 carry forward with the
 adjustments noted in each. **Revision 3** simplifies R4 (single persistence model, virtual
 threads demoted to optional configuration), sharpens R6's network boundary, and adds R14
-(analytics recording versus NFR-002).
+(analytics recording versus NFR-002). **R3a** records the orchestrator's database access
+layer (SQLAlchemy Core) as an implementation-level dependency — it changes no approved
+architecture decision.
 
 ---
 
@@ -128,6 +130,54 @@ database.
 - *One PostgreSQL database with two schemas* — simpler to operate, rejected because a single
   credential spanning both schemas weakens the least-privilege boundary and re-introduces
   shared lock and connection-pool pressure across the NFR-002 seam.
+
+---
+
+## R3a — Orchestrator database access layer (SQLAlchemy Core)
+
+**Recorded 2026-08-18, after implementation of checkpoints 2a–2c surfaced the dependency.**
+
+**Decision**: The Python orchestrator accesses PostgreSQL through **SQLAlchemy Core** — the
+expression/connection layer only — over `psycopg` as the driver. The Java shortener continues
+to use Spring Data JPA (R4). Both target the same approved datastore.
+
+**Scope of this record — what it is, and what it is not**:
+
+- **SQLAlchemy Core only, not the ORM.** No declarative models, no mapped classes, no session
+  or identity map, no lazy loading, no ORM-managed unit of work. The store layer issues
+  explicit SQL through `text()` against an engine; migrations remain hand-written SQL. Core is
+  used for connection and transaction management and for parameter binding, nothing more.
+- **PostgreSQL remains the approved datastore.** R3 is unchanged: two databases, two
+  credentials, no cross-database reference, and the concurrency and durability reasoning that
+  selected PostgreSQL over SQLite stands exactly as written.
+- **`psycopg` remains the underlying driver.** SQLAlchemy Core sits above it; it does not
+  replace it, and the DSN, driver behaviour, and connection semantics are unchanged.
+- **No new service and no new persistence boundary.** Nothing is added to the topology, no
+  data moves, no ownership boundary shifts, and the shortener/orchestrator seam that NFR-002
+  depends on is untouched.
+- **Implementation-level dependency; Gate II architecture is unchanged.** This is a library
+  choice inside an already-approved component, not an architecture decision. It introduces no
+  service, no datastore, no external dependency, and no security boundary — the four
+  categories the Architecture Approval Record covers. **No new approval is recorded and none
+  is required.** Should the ORM ever be adopted, or the datastore or driver change, that would
+  be a different decision and would require its own checkpoint (FR-029).
+
+**Rationale**: transaction scoping, connection pooling, and safe parameter binding are the
+parts of database access most likely to be got subtly wrong by hand, and Core supplies them
+without the ORM's mapping layer. Keeping to Core also preserves the property the store layer
+depends on for FR-036: every statement is visible at the call site, so the absence of an audit
+update or delete path is verifiable by reading the module rather than by reasoning about what
+an ORM might emit.
+
+**Alternatives considered**:
+
+- *Raw `psycopg` with hand-rolled connection and transaction handling* — fewest dependencies,
+  and entirely viable. Rejected because the hand-rolled pooling and transaction scoping it
+  requires are exactly the code most worth not writing, for no gain in transparency: Core
+  keeps the SQL explicit either way.
+- *SQLAlchemy ORM* — rejected. The mapping layer would obscure which statements actually reach
+  the database, which weakens the FR-036 argument above, and none of the orchestrator's access
+  patterns need identity mapping or lazy loading.
 
 ---
 

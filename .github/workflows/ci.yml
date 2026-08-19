@@ -1,0 +1,45 @@
+# Four test layers, run and reported separately (Constitution Principle IV, R10).
+# Integration and workflow layers use Testcontainers against real PostgreSQL —
+# never an in-memory substitute (R3).
+name: ci
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  orchestrator:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Install
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e "orchestrator[dev]"
+      - name: Lint
+        run: ruff check orchestrator
+      - name: Unit
+        run: pytest orchestrator/tests -m unit -q
+      - name: Workflow
+        run: pytest orchestrator/tests -m "workflow and not integration" -q
+      - name: Integration
+        run: pytest orchestrator/tests -m integration -q
+      - name: Failure-path
+        run: pytest orchestrator/tests -m failure -q
+
+  shortener:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          java-version: "21"
+          distribution: temurin
+          cache: maven
+      - name: Unit
+        run: mvn -B -f shortener/pom.xml test -Dtest='com.schwab.shortener.unit.*'
+      - name: Integration + failure-path
+        run: mvn -B -f shortener/pom.xml verify

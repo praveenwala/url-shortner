@@ -50,11 +50,11 @@ A task is `[HUMAN]` when it establishes or verifies a boundary that an agent mus
 
 **Purpose**: Project initialization and toolchain for three surfaces
 
-- [ ] T001 [AGENT] Create the three-surface repository structure — `shortener/`, `orchestrator/`, `console/`, plus `ops/` for operational scripts. No shared runtime module: the services share contracts only (plan § Structure Decision)
-- [ ] T002 [AGENT] [P] Initialize the Java 21 + Spring Boot 3 project in `shortener/` with Web MVC, Bean Validation, Spring Data JPA, Actuator, springdoc-openapi (R4)
-- [ ] T003 [AGENT] [P] Initialize the Python 3.13 project in `orchestrator/pyproject.toml` with FastAPI and the `anthropic` SDK (R1, R6)
+- [X] T001 [AGENT] Create the three-surface repository structure — `shortener/`, `orchestrator/`, `console/`, plus `ops/` for operational scripts. No shared runtime module: the services share contracts only (plan § Structure Decision)
+- [X] T002 [AGENT] [P] Initialize the Java 21 + Spring Boot 3 project in `shortener/` with Web MVC, Bean Validation, Spring Data JPA, Actuator, springdoc-openapi (R4)
+- [X] T003 [AGENT] [P] Initialize the Python 3.13 project in `orchestrator/pyproject.toml` with FastAPI and the `anthropic` SDK (R1, R6)
 - [ ] T004 [AGENT] [P] Initialize the React + TypeScript console in `console/` with Vite, building to static assets (R5)
-- [ ] T005 [AGENT] Configure consolidated formatting, linting, and the four-layer CI targets across all three surfaces in `.github/workflows/ci.yml` (IV, R10, X)
+- [X] T005 [AGENT] Configure consolidated formatting, linting, and the four-layer CI targets across all three surfaces in `.github/workflows/ci.yml` (IV, R10, X)
 - [ ] T006 [HUMAN] Provision PostgreSQL with two databases and two roles — `shortener_db`, `orchestrator_db`, neither able to read the other — in `ops/db/provision.sql` (R3, NFR-006)
 - [ ] T007 [HUMAN] Grant the orchestrator role `INSERT` and `SELECT` but **not** `UPDATE` or `DELETE` on `audit_event` in `ops/db/provision.sql` (FR-036, approval record item 6)
 
@@ -66,13 +66,13 @@ A task is `[HUMAN]` when it establishes or verifies a boundary that an agent mus
 
 **⚠️ CRITICAL**: No user story work can begin until this phase is complete
 
-- [ ] T008 [AGENT] [P] Implement each service's own correlation and trace identifier helper — no cross-language import — against the field names fixed in `contracts/correlation.md`, in `shortener/src/main/java/.../shortener/trace/` and `orchestrator/src/trace/` (VIII, NFR-007)
-- [ ] T009 [AGENT] [P] Define the stable error identifier set and response shapes in `shortener/src/main/java/.../shortener/web/errors/` and `orchestrator/src/api/errors.py` (FR-009, FR-016, SC-004)
-- [ ] T010 [AGENT] [P] Build the Testcontainers PostgreSQL harnesses in `shortener/src/test/java/support/` and `orchestrator/tests/support/` (R3, R10)
-- [ ] T011 [AGENT] Implement the Spring Boot skeleton with Actuator health and the FastAPI skeleton with health in `shortener/src/main/java/.../shortener/` and `orchestrator/src/api/app.py` (NFR-007)
+- [X] T008 [AGENT] [P] Implement each service's own correlation and trace identifier helper — no cross-language import — against the field names fixed in `contracts/correlation.md`, in `shortener/src/main/java/.../shortener/trace/` and `orchestrator/src/trace/` (VIII, NFR-007)
+- [X] T009 [AGENT] [P] Define the stable error identifier set and response shapes in `shortener/src/main/java/.../shortener/web/errors/` and `orchestrator/src/api/errors.py` (FR-009, FR-016, SC-004)
+- [X] T010 [AGENT] [P] Build the Testcontainers PostgreSQL harnesses in `shortener/src/test/java/support/` and `orchestrator/tests/support/` (R3, R10)
+- [X] T011 [AGENT] Implement the Spring Boot skeleton with Actuator health and the FastAPI skeleton with health in `shortener/src/main/java/.../shortener/` and `orchestrator/src/api/app.py` (NFR-007)
 - [ ] T012 [AGENT] Implement the console shell and typed API client in `console/src/api/` (FR-045, FR-048)
-- [ ] T013 [AGENT] Configure migration tooling and baselines for both databases in `shortener/src/main/resources/db/migration/` and `orchestrator/src/store/migrations/` (NFR-003)
-- [ ] T014 [AGENT] Configure separate connection pools for the redirect path and analytics serving in `shortener/src/main/resources/application.yaml` (NFR-002, R14)
+- [X] T013 [AGENT] Configure migration tooling and baselines for both databases in `shortener/src/main/resources/db/migration/` and `orchestrator/src/store/migrations/` (NFR-003)
+- [X] T014 [AGENT] Configure separate connection pools for the redirect path and analytics serving in `shortener/src/main/resources/application.yaml` (NFR-002, R14)
 - [ ] T015 [HUMAN] Restrict orchestrator process egress to the configured Claude endpoint only, in `orchestrator/src/agent/config.py` (R6, SC-017)
 
 **Checkpoint**: Foundation ready - user story implementation can now begin in parallel
@@ -124,31 +124,31 @@ A task is `[HUMAN]` when it establishes or verifies a boundary that an agent mus
 
 **Demonstrable when**: schema migrates, states are enumerated, audit has no update path.
 
-- [ ] T031 [AGENT] [P] [US2] Integration test asserting migrations apply, states are enumerable, and the store exposes no audit update or delete path in `orchestrator/tests/integration/test_store_shape.py` (FR-025, FR-036, NFR-004)
-- [ ] T032 [AGENT] [US2] Write all orchestrator migrations — requirement, workflow_run, task_node, task_dependency, gate, approval_record, decision_record, change_record, audit_event, replan_event, trace_link — in `orchestrator/src/store/migrations/` (FR-020, FR-025, FR-027, FR-033, FR-036, data-model)
-- [ ] T033 [AGENT] [P] [US2] Implement the run and node state enumerations in `orchestrator/src/models/states.py` (R7, FR-025)
-- [ ] T034 [AGENT] [US2] Implement the store layer with no update or delete path for audit records in `orchestrator/src/store/repository.py` (FR-036, NFR-004)
+- [X] T031 [AGENT] [P] [US2] Integration test asserting migrations apply, states are enumerable, and the store exposes no audit update or delete path in `orchestrator/tests/integration/test_store_shape.py` (FR-025, FR-036, NFR-004)
+- [X] T032 [AGENT] [US2] Write all orchestrator migrations — requirement, workflow_run, task_node, task_dependency, gate, approval_record, decision_record, change_record, audit_event, replan_event, trace_link — in `orchestrator/src/store/migrations/` (FR-020, FR-025, FR-027, FR-033, FR-036, data-model)
+- [X] T033 [AGENT] [P] [US2] Implement the run and node state enumerations in `orchestrator/src/models/states.py` (R7, FR-025)
+- [X] T034 [AGENT] [US2] Implement the store layer with no update or delete path for audit records in `orchestrator/src/store/repository.py` (FR-036, NFR-004)
 
 ### Checkpoint 2b — Requirement interpretation + DAG planning
 
 **Demonstrable when**: a requirement becomes a recorded interpretation and an acyclic graph; a cycle is rejected.
 
-- [ ] T035 [AGENT] [P] [US2] Workflow test asserting a written interpretation is recorded before any implementation task exists in `orchestrator/tests/workflow/test_interpretation.py` (FR-020)
-- [ ] T036 [AGENT] [P] [US2] Workflow test asserting the plan is a DAG and a cycle is rejected before execution in `orchestrator/tests/workflow/test_graph_validity.py` (FR-022)
-- [ ] T037 [AGENT] [US2] Implement requirement intake and interpretation recording in `orchestrator/src/engine/intake.py` (FR-020)
-- [ ] T038 [AGENT] [US2] Implement decomposition into task nodes with mandatory requirement references and declared execution mode in `orchestrator/src/engine/decompose.py` (FR-021, FR-035, FR-042)
-- [ ] T039 [AGENT] [US2] Implement DAG construction with cycle rejection and readiness computation in `orchestrator/src/graph/builder.py` (FR-022, FR-023)
+- [X] T035 [AGENT] [P] [US2] Workflow test asserting a written interpretation is recorded before any implementation task exists in `orchestrator/tests/workflow/test_interpretation.py` (FR-020)
+- [X] T036 [AGENT] [P] [US2] Workflow test asserting the plan is a DAG and a cycle is rejected before execution in `orchestrator/tests/workflow/test_graph_validity.py` (FR-022)
+- [X] T037 [AGENT] [US2] Implement requirement intake and interpretation recording in `orchestrator/src/engine/intake.py` (FR-020)
+- [X] T038 [AGENT] [US2] Implement decomposition into task nodes with mandatory requirement references and declared execution mode in `orchestrator/src/engine/decompose.py` (FR-021, FR-035, FR-042)
+- [X] T039 [AGENT] [US2] Implement DAG construction with cycle rejection and readiness computation in `orchestrator/src/graph/builder.py` (FR-022, FR-023)
 
 ### Checkpoint 2c — Execution + synchronization + gates
 
 **Demonstrable when**: parallel branches run and converge, gates block, an interrupted run resumes.
 
-- [ ] T040 [AGENT] [P] [US2] Workflow test asserting independent tasks run concurrently and a sync node waits for every inbound branch in `orchestrator/tests/workflow/test_parallel_sync.py` (FR-023, FR-024, SC-008)
-- [ ] T041 [AGENT] [P] [US2] Workflow test asserting entry and exit gates block and record outcome and reason in `orchestrator/tests/workflow/test_gates.py` (FR-026)
-- [ ] T042 [AGENT] [P] [US2] Workflow test asserting an interrupted run resumes with no completed task re-executed and no lost transition in `orchestrator/tests/workflow/test_resume.py` (FR-025, SC-012)
-- [ ] T043 [AGENT] [US2] Implement the concurrent scheduler and synchronisation node semantics in `orchestrator/src/engine/scheduler.py` and `orchestrator/src/graph/sync.py` (FR-023, FR-024)
-- [ ] T044 [AGENT] [US2] Implement gate definition, evaluation, and recording in `orchestrator/src/engine/gates.py` (FR-026)
-- [ ] T045 [AGENT] [US2] Implement state persistence at every transition and resume-from-persisted-state in `orchestrator/src/engine/state.py` (FR-025, NFR-003, SC-012)
+- [X] T040 [AGENT] [P] [US2] Workflow test asserting independent tasks run concurrently and a sync node waits for every inbound branch in `orchestrator/tests/workflow/test_parallel_sync.py` (FR-023, FR-024, SC-008)
+- [X] T041 [AGENT] [P] [US2] Workflow test asserting entry and exit gates block and record outcome and reason in `orchestrator/tests/workflow/test_gates.py` (FR-026)
+- [X] T042 [AGENT] [P] [US2] Workflow test asserting an interrupted run resumes with no completed task re-executed and no lost transition in `orchestrator/tests/workflow/test_resume.py` (FR-025, SC-012)
+- [X] T043 [AGENT] [US2] Implement the concurrent scheduler and synchronisation node semantics in `orchestrator/src/engine/scheduler.py` and `orchestrator/src/graph/sync.py` (FR-023, FR-024)
+- [X] T044 [AGENT] [US2] Implement gate definition, evaluation, and recording in `orchestrator/src/engine/gates.py` (FR-026)
+- [X] T045 [AGENT] [US2] Implement state persistence at every transition and resume-from-persisted-state in `orchestrator/src/engine/state.py` (FR-025, NFR-003, SC-012)
 
 ### Checkpoint 2d — Bounded agent runtime (HUMAN)
 

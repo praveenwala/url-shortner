@@ -1,0 +1,35 @@
+# Two connection pools (T014, NFR-002, R14): the redirect path and analytics
+# serving draw from separate pools, so a heavy analytics query cannot starve
+# the pool the redirect path depends on.
+spring:
+  application:
+    name: shortener
+  datasource:
+    url: ${SHORTENER_DB_URL:jdbc:postgresql://localhost:5432/shortener_db}
+    username: ${SHORTENER_DB_USER:shortener}
+    password: ${SHORTENER_DB_PASSWORD:}
+    hikari:
+      pool-name: redirect-pool
+      maximum-pool-size: 16
+      minimum-idle: 4
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+
+# Analytics serving pool — separate from the redirect path on purpose (NFR-002).
+shortener:
+  analytics:
+    datasource:
+      pool-name: analytics-pool
+      maximum-pool-size: 4
+      minimum-idle: 1
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info

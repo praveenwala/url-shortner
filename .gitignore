@@ -1,0 +1,33 @@
+# Java
+target/
+*.class
+*.jar
+.gradle/
+build/
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+*.egg-info/
+.pytest_cache/
+
+# Node / console
+node_modules/
+dist/
+
+# Env & secrets — never commit (NFR-006)
+.env
+.env.*
+*.key
+*.pem
+
+# OS / editor
+.DS_Store
+Thumbs.db
+*.swp
+.idea/
+.vscode/
+*.log
+.DS_Store
