@@ -1,7 +1,7 @@
 # Requirements traceability audit (T100)
 
-**Date:** 2026-08-20 · **Feature:** `specs/001-agentic-url-shortener` · **Method:** every row
-verified against the current codebase, not against the task list's own claims
+**Date:** 2026-08-20 · **Feature:** `specs/001-agentic-url-shortener` · **Status: FINAL SUBMISSION AUDIT (T100), closed after T022, T102, T103 and T104**
+**Method:** every row verified against the current codebase, not against the task list's own claims
 
 This document is the FR-034 report turned on the delivery itself: for each requirement it names
 the tasks, the implementation, the validating tests, the approval where one applies, and the
@@ -14,21 +14,22 @@ over.
 | | Count |
 |---|---|
 | Total requirements (FR 49 · NFR 9 · SC 21) | **79** |
-| `COVERED` | **75** |
+| `COVERED` | **77** |
 | `DEFERRED_APPROVED` | **2** |
-| `GAP` | **2** |
+| `GAP` | **0** |
 
-**Two gaps exist and both are sequencing, not missing engineering** — each traces to a task the
-delivery sequence has not reached yet, and neither has a deferral record, so neither may be
-classified as approved:
+**No gaps remain.** Every requirement is either covered by implementation and test, or carries an
+approved deferral with a register entry.
 
-| ID | Why it is a gap | Owning task |
-|---|---|---|
-| **SC-001** | No timed observation of an untrained person creating and following a link has been recorded. The capability works; the *measurement* does not exist. `specs/001-agentic-url-shortener/baseline.md` is referenced by T022 and T098 and is absent. | **T022** `[HUMAN]`, open |
-| **NFR-008** | Two clauses. "Injectable dependencies, no hidden global state" is evidenced structurally and, for the console, by test. "Public interfaces and non-obvious decisions carry documented rationale" is T101's deliverable — `docs/` currently holds only `contracts/`, `security/` and this file. | **T101** `[AGENT]`, open |
+*Closed since the first issue of this document:* **SC-001** — T022 was executed and timed by a
+human participant on 2026-08-20 and recorded in `specs/001-agentic-url-shortener/baseline.md`
+(unaided, approximately 0.5 seconds against a 30-second budget). The participant's link
+`Ii2L2v2` was then independently verified end to end. The timing is human-provided; no part of
+it was measured or performed by an agent.
 
-Per the T100 rule, neither was implemented during this audit. **A decision is needed before
-T101** — see §8.
+Both gaps identified by the original audit have since been closed by the tasks that owned them —
+SC-001 by human-executed T022, NFR-008 by T101 — and the automated check in §7 fails the build if
+a new one appears.
 
 *Numbering note:* FR-019 does not exist. Shortener requirements end at FR-018 and orchestration
 requirements begin at FR-020; the skip is a section boundary, not a lost requirement.
@@ -93,9 +94,9 @@ requirements begin at FR-020; the skip is a section boundary, not a lost require
 | **NFR-005** | The shortener sustains at least 100 redirects per second against at least 100,000… | COVERED | T098 | V2__short_links.sql (simple indexed table) | perf/run_baseline.sh (100k links, 100 rps, 120 s x 2 profiles) | — | 100.0 rps sustained, 0 errors across 24,000 redirects |
 | **NFR-006** | All external input is validated and normalised at the boundary; secrets never appear in… | COVERED | T006,T025 | DestinationValidator.java, agent/config.py, ops/db/*.sql | unit/DestinationValidatorTest; failure/test_egress_boundary.py; failure/test_audit_secret_safety.py | T006/T007 HUMAN-executed four-role model | least privilege verified live; T102 human security review still to run |
 | **NFR-007** | Every orchestration action and every shortener error path emits a structured,… | COVERED | T008,T011 | trace/correlation.py, shortener trace/Correlation.java | unit/CorrelationTest#fieldNamesMatchTheContract, #childKeepsTheTraceAndStartsANewSpan | contracts/correlation.md | run_id/trace_id/span_id on every audited action |
-| **NFR-008** | Components are independently testable with injectable dependencies and no hidden global… | **GAP** | T101 (open) | injectable dependencies throughout; no module-level state in console | console/tests/api-parity.test.tsx#client exposes no state store or cache (console clause only) | — | **structural half evidenced; the documented-rationale half is T101's deliverable, not yet produced** |
+| **NFR-008** | Components are independently testable with injectable dependencies and no hidden global… | COVERED | T101 | injectable dependencies throughout; no module-level state (console asserted by test) | console/tests/api-parity.test.tsx#client exposes no state store or cache; console.test.tsx#keeps no authoritative state | — | docs/HLD.md, docs/LLD.md (§17 documents rationale for all six public interfaces), README.md |
 | **NFR-009** | Every orchestration run declares a ceiling on wall-clock duration and on retry… | COVERED | T049,T053,T082,T090 | engine/bounds.py, agent/sandbox.py (SandboxLimits.wall_clock_seconds) | failure/test_bounds.py#test_max_attempts_exhausted_raises_and_stops; failure/test_sandbox_escape.py#test_wall_clock_timeout_terminates_execution | — | wall-clock and attempt ceilings enforced, safe-stop on exceed |
-| **SC-001** | A person can turn a long destination into a working short link and follow it to that… | **GAP** | T022 (open, HUMAN) | create + follow implemented and working | — | — | **no timed observation recorded; specs/.../baseline.md does not exist** |
+| **SC-001** | A person can turn a long destination into a working short link and follow it to that… | COVERED | T022 | shortener create + resolve path (LinkController, RedirectController) | ops/smoke/t022-path-check.sh (pre-flight); six post-session database and resolve checks | **T022 HUMAN-executed 2026-08-20** | baseline.md — untrained participant, unaided, approximately 0.5 s against a 30 s budget; link `Ii2L2v2` verified end to end (human-provided timing) |
 | **SC-002** | With 100,000 links stored and 100 follows per second sustained, 95% of link follows… | COVERED | T098 | — | perf/loadgen.py profiles A and B | — | PASS with ~22x headroom on p95, ~34x on p99 — perf/baseline-2026-08-20.md |
 | **SC-003** | 100% of submitted destinations using a non-HTTP(S) scheme are refused, with zero such… | COVERED | T018 | validation/DestinationValidator.java | unit/DestinationValidatorTest#rejectsEverySchemeOutsideTheAllowList | — | 100% of non-HTTP(S) schemes refused; zero created |
 | **SC-004** | Every distinct failure condition — unknown, expired, malformed, revoked, conflicting… | COVERED | T009,T016,T029 | web/errors/ErrorCode.java | unit/ErrorCodeTest#everyIdentifierIsDistinct; contract/OpenApiParityTest#everyNonDeferredErrorIdentifierIsReachable | — | every failure distinguishable without parsing prose |
@@ -330,15 +331,77 @@ existing CI parity step) fails the build when:
    the register;
 6. a `DEFERRED_APPROVED` requirement loses its citation in tasks.md § Deferred Capabilities.
 
-## 8. Decision needed before T101
+## 8. Final submission audit (T100 close)
 
-Both gaps are closable by work already scheduled; neither can be closed inside T100.
+T100 was deliberately held open until the three human gates and the human Constitution
+re-evaluation had landed, so that the audit closes against the released state rather than a
+mid-flight one. All four are now complete.
 
-1. **SC-001 / T022** — a `[HUMAN]` timed observation. Options: run it and record
-   `specs/001-agentic-url-shortener/baseline.md`; or record an explicit deferral, which would
-   move SC-001 to `DEFERRED_APPROVED`. An agent must not do either on the owner's behalf.
-2. **NFR-008 / T101** — the documentation half closes when T101 produces `docs/`. No decision is
-   needed beyond authorising T101 to proceed.
+### 8.1 Human gates
 
-Two further items are reported for a decision rather than actioned: the ten tasks missing a
-`(REQ)` identifier (§5.1), and the empty orchestrator `unit` layer (§6.2).
+| Task | Mode | Outcome |
+|---|---|---|
+| **T022** | `[HUMAN]` | Time-to-first-success. Untrained participant, unaided, **approximately 0.5 seconds** against SC-001's 30-second budget. Timing human-provided; link `Ii2L2v2` independently verified end to end. `specs/…/baseline.md` |
+| **T102** | `[HUMAN]` | Security review. **APPROVED WITH CONDITIONS.** 51 controls: 47 PASS, 4 ACCEPT-RISK, 0 FAIL; ten accepted risks; six binding conditions. `docs/security/security-review.md` |
+| **T103** | `[HUMAN]` | Quickstart validation. **PASS after two invalidated attempts.** Six README corrections; no runtime defect found. `docs/validation/quickstart-validation.md` |
+| **T104** | `[HUMAN]` | Constitution re-evaluation. **PASS — release-ready for the take-home prototype.** 13 gates: 12 PASS, 1 N-A, 0 FAIL. Gate II valid, no re-approval. `docs/validation/constitution-review.md` |
+
+### 8.2 Final verification, re-executed at close
+
+| Check | Result |
+|---|---|
+| Spec requirements vs matrix rows | **79 vs 79**, none unclassified |
+| Classification | **77 COVERED · 2 DEFERRED_APPROVED · 0 GAP** |
+| Tasks complete | **104 / 104** |
+| HUMAN tasks complete | **26**, all human-attributed |
+| Records of an agent approving anything | **0** |
+| Deferred capabilities absent from the shortener OpenAPI (`alias`, `rate_limit`, `retention`, `redis`) | **0 occurrences** |
+| Redis in any dependency manifest | **0** |
+| Orchestrator — unit/workflow/failure/contract | **280 passed** |
+| Orchestrator — integration (real PostgreSQL) | **176 passed** |
+| Console — vitest / typecheck | **49 passed** / *No errors found* |
+| Shortener — unit layer | **27 tests, 0 errors** |
+
+### 8.3 Findings carried into submission
+
+Three accepted by the human reviewer at T104, recorded here so they remain visible:
+
+1. **Ten completed tasks cite research decisions rather than `(REQ)` ids** — ACCEPTED as supporting
+   and architecture tasks. Requirement ids must **not** be back-fitted for cosmetic traceability.
+2. **The orchestrator `unit` marker selects one test, itself misfiled** — ACCEPTED as a
+   test-organization limitation, not a validation gap. Unit-test counts must **not** be
+   manufactured for appearance.
+3. **T102 remains APPROVED WITH CONDITIONS** — all ten accepted risks and six binding conditions
+   in force, for the **local take-home prototype only**, not for shared or production deployment.
+
+Plus one observation from this audit, disclosed rather than dismissed:
+
+4. **One intermittent test failure was observed once and did not reproduce.** The first execution of
+   the orchestrator unit/workflow/failure/contract selection reported `1 failed, 279 passed`; four
+   subsequent full runs of the same selection each reported **280 passed**. **The failing test's
+   identity was not captured** — the output was not retained before re-running — so it cannot be
+   named here. The layer contains container- and timing-sensitive tests (real Docker sandboxes,
+   wall-clock timeouts), which is the most likely source. Recorded as **known intermittency of
+   unknown identity**, not as a passing result.
+
+### 8.4 Audit conclusion
+
+Every requirement is either implemented and tested, or formally deferred with an approved register
+entry. **There is no GAP.** Bidirectional traceability holds in both directions and is enforced on
+every build by `test_traceability_matrix.py`, which fails if a requirement leaves the matrix, a
+cited task id stops existing, a new gap appears, or a deferred capability ships without the
+register being updated.
+
+**T100 closes: 79 requirements, 77 COVERED, 2 DEFERRED_APPROVED, 0 GAP.**
+
+---
+
+## 9. Outstanding items
+
+**None.** T102, T103 and T104 are complete, and T100 closes with this revision. The two findings
+that were awaiting a decision — the ten tasks missing a `(REQ)` identifier (§5.1) and the thin
+orchestrator `unit` layer (§6.2) — were **accepted by the human reviewer at T104** and are recorded
+in §8.3 as standing constraints rather than open work.
+
+Release readiness was a human judgement and was exercised as one: **PASS, release-ready for the
+take-home prototype**, `docs/validation/constitution-review.md` §5.

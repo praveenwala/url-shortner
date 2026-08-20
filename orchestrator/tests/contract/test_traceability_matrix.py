@@ -32,7 +32,7 @@ MATRIX = REPO / "docs/traceability/requirements-traceability.md"
 STATUSES = ("COVERED", "DEFERRED_APPROVED", "GAP")
 
 #: Known, reported, owner-visible gaps. Remove an entry when it is closed.
-DECLARED_GAPS: frozenset[str] = frozenset({"SC-001", "NFR-008"})
+DECLARED_GAPS: frozenset[str] = frozenset()
 
 #: Requirements deferred at the implementation level, with the register entry
 #: that approves each.
