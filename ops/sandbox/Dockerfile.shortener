@@ -1,0 +1,29 @@
+# Sandbox image for shortener (Java 21 / Maven) tests.
+#
+# Built by ops/sandbox/build-images.sh — a provisioning step (research R15).
+#
+# Two stages on purpose. The warm stage compiles and runs the suite once, with
+# the network available, so that everything Maven resolves lazily is cached —
+# including the surefire *provider* jars, which `dependency:go-offline` does not
+# fetch and whose absence is the classic cause of an offline build failing only
+# at test time. The final stage copies the populated repository and nothing
+# else, so no project source, no secrets, and no build history ship in the image.
+
+FROM maven:3.9-eclipse-temurin-21 AS warm
+COPY shortener /warm
+WORKDIR /warm
+RUN mvn -B -Dmaven.repo.local=/m2 -Dstyle.color=never test || true
+RUN mvn -B -Dmaven.repo.local=/m2 -Dstyle.color=never dependency:go-offline || true
+
+FROM maven:3.9-eclipse-temurin-21
+COPY --from=warm /m2 /m2
+
+# The runtime runs as the host uid — neither root nor the image user — so the
+# cache must be usable by any uid.
+RUN chmod -R a+rwX /m2
+
+ENV HOME=/tmp \
+    MAVEN_CONFIG=/tmp/.m2
+RUN useradd --create-home --uid 10001 sandbox
+USER 10001
+WORKDIR /work

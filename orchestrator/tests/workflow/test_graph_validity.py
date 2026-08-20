@@ -18,6 +18,7 @@ def _node(nid: str, deps: list[str] | None = None) -> TaskNode:
         execution_mode=ExecutionMode.AGENT_AUTHORED,
         surface=Surface.ORCHESTRATOR,
         depends_on=deps or [],
+        declared_outputs=(f"orchestrator/src/{nid}.py",),
     )
 
 

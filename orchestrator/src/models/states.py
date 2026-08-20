@@ -28,23 +28,31 @@ TERMINAL_RUN_STATES: frozenset[RunState] = frozenset(
 # WAITING_FOR_HUMAN never transitions to anything autonomously: only a recorded
 # human response moves it (FR-049). It is reachable from EXECUTING and PLANNING
 # and returns only to the state that was waiting.
+# Principle VII: a safe-stop halts execution and escalates. It must therefore be
+# reachable from *every* non-terminal state — a run that cannot stop safely because
+# of where it happens to be is exactly the failure the principle prohibits. This was
+# corrected during US3, when a clarification budget exhausted while WAITING_FOR_HUMAN
+# had nowhere to go.
 ALLOWED_RUN_TRANSITIONS: dict[RunState, frozenset[RunState]] = {
     RunState.PLANNING: frozenset(
         {RunState.AWAITING_PLAN_APPROVAL, RunState.WAITING_FOR_HUMAN, RunState.FAILED,
          RunState.SAFE_STOPPED, RunState.ABANDONED}
     ),
     RunState.AWAITING_PLAN_APPROVAL: frozenset(
-        {RunState.EXECUTING, RunState.WAITING_FOR_HUMAN, RunState.ABANDONED, RunState.FAILED}
+        {RunState.EXECUTING, RunState.WAITING_FOR_HUMAN, RunState.ABANDONED,
+         RunState.FAILED, RunState.SAFE_STOPPED}
     ),
     RunState.EXECUTING: frozenset(
         {RunState.WAITING_FOR_HUMAN, RunState.REPLANNING, RunState.COMPLETED,
          RunState.FAILED, RunState.SAFE_STOPPED, RunState.ABANDONED}
     ),
     RunState.WAITING_FOR_HUMAN: frozenset(
-        {RunState.PLANNING, RunState.EXECUTING, RunState.REPLANNING, RunState.ABANDONED}
+        {RunState.PLANNING, RunState.EXECUTING, RunState.REPLANNING, RunState.ABANDONED,
+         RunState.SAFE_STOPPED}
     ),
     RunState.REPLANNING: frozenset(
-        {RunState.EXECUTING, RunState.WAITING_FOR_HUMAN, RunState.FAILED, RunState.ABANDONED}
+        {RunState.EXECUTING, RunState.WAITING_FOR_HUMAN, RunState.FAILED,
+         RunState.ABANDONED, RunState.SAFE_STOPPED}
     ),
     RunState.COMPLETED: frozenset(),
     RunState.FAILED: frozenset(),

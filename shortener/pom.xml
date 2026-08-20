@@ -124,6 +124,24 @@ Installed JDKs can be listed with `/usr/libexec/java_home -V` on macOS or
         </executions>
       </plugin>
 
+      <!--
+        Docker Engine 29 reports MinAPIVersion 1.40 and returns HTTP 400 for
+        anything older. docker-java defaults below that, so every Testcontainers
+        provider strategy fails with a 400 from /info and reports the misleading
+        "Could not find a valid Docker environment" while the daemon is running.
+        Pinning a supported API version here keeps the suite working without
+        depending on a developer's ~/.testcontainers.properties.
+      -->
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-surefire-plugin</artifactId>
+        <configuration>
+          <systemPropertyVariables>
+            <api.version>1.44</api.version>
+          </systemPropertyVariables>
+        </configuration>
+      </plugin>
+
       <plugin>
         <groupId>org.springframework.boot</groupId>
         <artifactId>spring-boot-maven-plugin</artifactId>

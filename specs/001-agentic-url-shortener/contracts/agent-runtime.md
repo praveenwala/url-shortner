@@ -42,12 +42,37 @@ authority**. The entire tool surface is:
 |------|-----------|------------|
 | `read_file` | Read a file | The task's path allow-list, derived from its approved interface and surface |
 | `write_file` | Write a file | The same allow-list, and only paths the task declares as outputs |
-| `run_tests` | Execute the project's test target for the task's surface | A fixed command per surface — not an arbitrary one, and not parameterised by the agent |
+| `run_tests` | Execute the project's test target for the task's surface **inside an ephemeral Docker sandbox** | A fixed command per surface — not an arbitrary one, not parameterised by the agent, and never executed on the host or against the authoritative repository (R15) |
 | `report` | Return findings or completion to the orchestrator | — |
 
 There is no `bash`, no `exec`, no package installation, no network tool, no git tool, and no
 path outside the per-task allow-list. This is why the prohibitions above hold: they are
 **unreachable**, not discouraged.
+
+### Test sandbox — where agent-authored code actually runs
+
+`run_tests` is the one tool that executes code the agent wrote. Bounding the *tool surface* is
+not enough for it: an agent that can write a test file can put arbitrary code in that file.
+Every invocation therefore runs in an ephemeral container (R15, HUMAN-approved):
+
+1. A **disposable task-scoped copy** of the single approved surface is created.
+2. Tests execute against that copy, never the authoritative tree.
+3. The copy is discarded afterwards.
+4. Unexpected filesystem mutations cannot propagate back, because **the authoritative
+   repository is never mounted into the container** — not writable, not read-only.
+
+| Control | Unit / workflow / failure | Integration |
+|---------|---------------------------|-------------|
+| Network | `--network none` | dedicated isolated Docker network, no internet egress |
+| Docker socket | never mounted | never mounted — the orchestrator provisions PostgreSQL *externally* |
+| Host home directory | absent | absent |
+| Secrets in environment | none | test-only credentials scoped to a disposable database |
+| `.git`, `ops/`, other surfaces | excluded from the copy | excluded from the copy |
+| Privileges | non-root, `--cap-drop ALL`, `no-new-privileges` | same |
+| Bounds | CPU, memory, PIDs, output size, wall-clock | same |
+
+**Accepted residual risk**: containers share the host kernel; a container-escape vulnerability
+is not defended against. The threat model is agent over-reach, not adversarial exploitation.
 
 ### Network boundary
 
@@ -55,8 +80,8 @@ Two different things, and the distinction is load-bearing:
 
 | Actor | Network authority |
 |-------|-------------------|
-| The **orchestrator process** | Exactly one configured egress: the Claude API endpoint required for agent execution. Process egress is restricted to that host |
-| The **agent** | **None.** No tool takes a URL, host, or port. No HTTP tool, no fetch tool, no MCP connector, no package installation |
+| The **orchestrator process** | Exactly one configured egress: the Claude API endpoint required for agent execution, plus its own PostgreSQL. Guarded by a socket allow-list — **defense in depth for this process only**, not the sandbox for agent-authored test code (that is R15) |
+| The **agent** | **None.** No tool takes a URL, host, or port. No HTTP tool, no fetch tool, no MCP connector, no package installation. Code the agent *writes* is equally unable to reach the network, because it runs with `--network none` (R15) |
 
 **Server-side model tools are not declared.** Web search, web fetch, and code execution are
 deliberately absent from every request. Without this, an agent could cause arbitrary outbound

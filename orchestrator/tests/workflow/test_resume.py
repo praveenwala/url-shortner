@@ -22,6 +22,7 @@ def _node(nid, deps=None):
         id=nid, description=f"task {nid}", requirement_ref="FR-025",
         execution_mode=ExecutionMode.AGENT_AUTHORED, surface=Surface.ORCHESTRATOR,
         depends_on=deps or [],
+        declared_outputs=(f"orchestrator/src/{nid}.py",),
     )
 
 
@@ -107,3 +108,18 @@ def test_graph_reloaded_from_store_preserves_dependencies(seeded):
     assert graph.predecessors("b") == ["a"]
     assert graph.predecessors("c") == ["b"]
     assert graph.descendants("a") == {"b", "c"}
+
+
+def test_declared_outputs_survive_persistence(seeded):
+    """Dispatch reads the node from the store, not from the planner's memory, so
+    the write allow-list must round-trip through PostgreSQL intact (FR-041)."""
+    reloaded = seeded.load_graph("run-1")
+    assert reloaded.nodes["a"].declared_outputs == ("orchestrator/src/a.py",)
+    assert reloaded.nodes["b"].write_allowlist == ("orchestrator/src/b.py",)
+    assert isinstance(reloaded.nodes["a"].declared_outputs, tuple)
+
+    # and they are still frozen after being rebuilt from the store
+    from src.api.errors import OrchestratorError
+
+    with pytest.raises(OrchestratorError):
+        reloaded.nodes["a"].declared_outputs = ("orchestrator/src/anything.py",)

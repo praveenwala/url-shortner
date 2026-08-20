@@ -17,7 +17,12 @@ public enum ErrorCode {
     EXPIRED("expired"),
     REVOKED("revoked"),
     RATE_LIMITED("rate_limited"),
-    FORBIDDEN("forbidden");
+    FORBIDDEN("forbidden"),
+    /**
+     * The redirect could not be durably counted, so it was not served (R14).
+     * Additive within v1: clients that do not know it treat it as a 5xx.
+     */
+    REDIRECT_NOT_RECORDED("redirect_not_recorded");
 
     private final String id;
 

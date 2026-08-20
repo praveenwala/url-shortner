@@ -29,6 +29,10 @@ jobs:
         run: pytest orchestrator/tests -m integration -q
       - name: Failure-path
         run: pytest orchestrator/tests -m failure -q
+      - name: Contract parity
+        # Fails if the published OpenAPI, the approved contract, and the running
+        # application disagree — drift breaks the build rather than being noticed later.
+        run: pytest orchestrator/tests -m contract -q
 
   shortener:
     runs-on: ubuntu-latest
@@ -40,6 +44,10 @@ jobs:
           distribution: temurin
           cache: maven
       - name: Unit
-        run: mvn -B -f shortener/pom.xml test -Dtest='com.schwab.shortener.unit.*'
+        run: mvn -B -f shortener/pom.xml test -Dtest='**/unit/*Test'
+      - name: Contract parity
+        # Regenerates the OpenAPI document from the running application and fails if it
+        # drifts from the approved contract or the committed artifact.
+        run: mvn -B -f shortener/pom.xml test -Dtest='**/contract/*Test'
       - name: Integration + failure-path
         run: mvn -B -f shortener/pom.xml verify

@@ -1,0 +1,16 @@
+# Sandbox image for console (Node / React / TypeScript) tests.
+#
+# Built by ops/sandbox/build-images.sh — a provisioning step (research R15).
+#
+# NOTE: the console surface is not initialised yet (its Phase 1 task is
+# deferred), so this image is provisioned for completeness and its test command
+# has nothing to run until then.
+FROM node:22-alpine
+
+ENV HOME=/tmp \
+    npm_config_cache=/tmp/.npm \
+    npm_config_update_notifier=false
+
+# node:*-alpine already ships a non-root `node` user (uid 1000).
+USER node
+WORKDIR /work

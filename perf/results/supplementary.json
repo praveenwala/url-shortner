@@ -1,0 +1,28 @@
+{
+  "profile": "B-supplementary",
+  "target_rps": 100.0,
+  "duration_s": 16.0,
+  "total_requests": 1600,
+  "successful_redirects": 1600,
+  "errors": 0,
+  "error_rate": 0.0,
+  "throughput_rps": 100.03,
+  "latency_ms": {
+    "p50": 5.19,
+    "p95": 6.83,
+    "p99": 7.97,
+    "max": 38.7,
+    "mean": 5.43
+  },
+  "scheduler_lag_ms": {
+    "p50": 0.78,
+    "p95": 1.38,
+    "max": 4.23
+  },
+  "status_counts": {
+    "302": 1600
+  },
+  "hot_share": 0.7,
+  "hot_size": 5,
+  "corpus_size": 100000
+}

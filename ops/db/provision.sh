@@ -200,7 +200,9 @@ run_grants() {
 # The SQL reports the privilege state; the wrapper is what turns a wrong answer
 # into a non-zero exit. Keeps assertion logic out of SQL entirely.
 verify_audit_privileges() {
-  local expected="t,t,f,f" actual
+  # boolean || text renders as 'true'/'false' — psql's aligned output shows
+  # t/f, but concatenation does not. Compare against what actually comes back.
+  local expected="true,true,false,false" actual
   actual="$("${PSQL_CMD[@]}" --dbname="$ORCHESTRATOR_DB" -tAX -c "
       SELECT has_table_privilege('orchestrator_app','public.audit_event','SELECT')
           || ',' || has_table_privilege('orchestrator_app','public.audit_event','INSERT')

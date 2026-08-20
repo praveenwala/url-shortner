@@ -1,0 +1,28 @@
+{
+  "profile": "B-hot-skew",
+  "target_rps": 100.0,
+  "duration_s": 120.0,
+  "total_requests": 12000,
+  "successful_redirects": 12000,
+  "errors": 0,
+  "error_rate": 0.0,
+  "throughput_rps": 100.0,
+  "latency_ms": {
+    "p50": 5.03,
+    "p95": 6.62,
+    "p99": 11.64,
+    "max": 68.33,
+    "mean": 5.4
+  },
+  "scheduler_lag_ms": {
+    "p50": 0.52,
+    "p95": 0.81,
+    "max": 6.48
+  },
+  "status_counts": {
+    "302": 12000
+  },
+  "hot_share": 0.7,
+  "hot_size": 5,
+  "corpus_size": 100000
+}

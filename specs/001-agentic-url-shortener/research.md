@@ -332,6 +332,12 @@ Node states: `PENDING` → `READY` → `RUNNING` → `SUCCEEDED` | `FAILED` | `R
 `SKIPPED`, with `STALE` as a flag orthogonal to state (FR-033 marks completed work stale
 without erasing its result).
 
+**Correction, US3 (2026-08-19).** `SAFE_STOPPED` is now reachable from *every* non-terminal
+run state, not only from `PLANNING` and `EXECUTING`. A clarification budget exhausted while
+`WAITING_FOR_HUMAN` had nowhere to go, which would have meant a run that could not stop safely
+because of where it happened to be — precisely the failure Principle VII prohibits. Added to
+`AWAITING_PLAN_APPROVAL`, `WAITING_FOR_HUMAN`, and `REPLANNING`.
+
 **Rationale**: FR-025 persists state at every transition and FR-036 audits every transition,
 so the set must be closed and named before either is testable. Staleness is a flag rather
 than a state because a stale-but-succeeded node retains a result replanning may consult.
@@ -555,6 +561,72 @@ any cache tier. Not to be pre-optimised.
 - *Separate analytics database* — would decouple recording from the link store, but then the
   count and the link are in different databases and exactness needs distributed coordination.
   Strictly worse on both axes.
+
+## R15 — Ephemeral Docker test sandbox for agent-authored code
+
+**Status: capability-boundary decisions HUMAN-APPROVED 2026-08-18.** The requirement owner
+made the security decisions in this section; the implementation was agent-assisted under that
+approved boundary. No architecture approval was recorded by an agent.
+
+**Decision**: `run_tests` never executes agent-authored code in the orchestrator process or
+against the authoritative repository. Every invocation runs inside an ephemeral Docker
+container against a **disposable task-scoped copy** of the single approved surface, discarded
+afterwards.
+
+**Why the previous design was insufficient**: R6 bounded the agent's *tool surface*, which
+stops an agent from asking for a shell. It did not bound what the agent's own **test code**
+could do once `run_tests` executed it — and an agent that can write a test file can put
+arbitrary code in it. The Python socket allow-list (R6, T015) does not help here either: it
+guards the orchestrator process, not a child process running project tests. The sandbox is the
+control that actually bounds agent-authored code; the socket guard is **defense in depth for
+the orchestrator process only** and must not be described as the primary sandbox.
+
+### Approved controls
+
+**Copy-on-run, never mount the authoritative repository writable.**
+
+1. Create a disposable task-scoped copy of the approved surface.
+2. Execute tests against that copy.
+3. Discard it after execution.
+4. Unexpected filesystem mutations never propagate back to the authoritative repository —
+   structurally, because the authoritative tree is never mounted into the container at all.
+
+**Unit / workflow / failure-path containers**: network disabled (`--network none`), no Docker
+socket, no host home directory, no secrets in the environment, no `.git`, no `ops/`, no access
+to any other project surface, non-privileged (`--user`, `--cap-drop ALL`), `no-new-privileges`,
+and bounded CPU, memory, PIDs, output size, and wall-clock time.
+
+**Integration tests**: the Docker socket is *not* exposed to the test runner. The orchestrator
+provisions a disposable PostgreSQL dependency externally and joins both containers to a
+dedicated isolated Docker network with no general internet egress. Credentials are test-only
+and scoped to that disposable database.
+
+**Model-visible tools remain exactly four**: `read_file`, `write_file`, `run_tests`, `report`.
+The sandbox is an implementation detail of `run_tests`; no container, image, command, mount, or
+network argument is expressible by the agent.
+
+### Alternatives considered
+
+- *Run tests in-process or as a plain subprocess on the host* — the prior design. Rejected: an
+  agent-written test file would execute with the orchestrator's own privileges, its network
+  access, its environment, and write access to the real repository.
+- *Host subprocess with a restricted user and `ulimit`* — better, but does not remove `.git`,
+  `ops/`, other surfaces, or host secrets from the filesystem view, and offers no credible
+  network boundary.
+- *Mount the repository read-only into the container* — rejected: tests legitimately write
+  (caches, build output, temp files), and a read-only mount either breaks them or invites a
+  writable exception that reopens the hole. A disposable copy is simpler and strictly safer.
+- *gVisor / Firecracker / rootless VM isolation* — stronger, and the right answer for hostile
+  code. Out of scope for this deliverable, and recorded as such: the threat model here is a
+  capable model making mistakes or over-reaching, not a dedicated attacker with a kernel
+  exploit.
+
+### Accepted residual risk
+
+Docker containers share the host kernel. A container escape via a kernel or runtime
+vulnerability is not defended against by this design. Accepted for a take-home whose threat
+model is agent over-reach rather than adversarial exploitation; noted here so the limit is
+recorded rather than implied.
 
 ## Unresolved
 

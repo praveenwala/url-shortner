@@ -1,0 +1,27 @@
+# Sandbox image for orchestrator (Python) tests.
+#
+# Built by ops/sandbox/build-images.sh — a provisioning step. The runtime never
+# builds or pulls: a missing image is a SandboxUnavailable failure, not
+# something run_tests resolves on demand (research R15).
+#
+# Contains dependencies only. No project source (that arrives as a disposable
+# copy mounted at /work), no secrets, no credentials, no git.
+FROM python:3.13-slim
+
+# Dependencies are baked in because the test container runs with --network none.
+RUN pip install --no-cache-dir \
+      "pytest>=8.0" \
+      "sqlalchemy>=2.0" \
+      "psycopg[binary]>=3.2" \
+      "fastapi>=0.115" \
+      "httpx>=0.27"
+
+# Writable only where a test legitimately needs it; /work is the mounted copy.
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    HOME=/tmp
+
+# Defense in depth: the runtime also passes --user <host uid>:<gid>.
+RUN useradd --create-home --uid 10001 sandbox
+USER 10001
+WORKDIR /work

@@ -68,7 +68,8 @@ simple indexed table with documented retention behaviour (R14). Audit records ar
 agent runtime stubbed by default
 
 **Target Platform**: Linux/macOS; two backend processes plus static console assets and a
-PostgreSQL instance, all locally runnable
+PostgreSQL instance, all locally runnable. **Docker is required** for the agent test sandbox
+(R15, HUMAN-approved) and for Testcontainers-backed integration tests
 
 **Project Type**: Polyglot multi-service backend with a single-page console
 
@@ -272,6 +273,41 @@ two languages.
 | **Not** a violation — recorded for review | No broker for analytics recording (R14) | Kafka solves cross-service durability; the counter and the event are written to one database in one transaction, so there is no distributed transaction for a broker to solve |
 | **Removed in revision 3** | JPA/JDBC split, and virtual threads as a foundational choice | Both were performance optimisations chosen before any measurement existed. One persistence model and the default thread model are the simpler baseline the requirements permit; each remains available as a measured brownfield lever (R4, R13) |
 
+## Gate II addendum — Docker as a scoped runtime prerequisite
+
+**HUMAN-APPROVED 2026-08-18.** Recorded as an addendum to the Architecture Approval Record
+above, not as a new approval and not a re-opening of Gate II.
+
+Checkpoint 2d's HUMAN-approved capability boundary (research R15) executes agent-authored test
+code in an ephemeral Docker container. That makes Docker a **runtime prerequisite of one
+capability** — `run_tests` — rather than of the orchestrator as a whole.
+
+**Scope, stated precisely:**
+
+- **Requires Docker**: `run_tests`, and therefore any bounded task whose plan includes running
+  a test layer.
+- **Does not require Docker**: everything else the orchestrator does. Requirement intake and
+  interpretation, ambiguity detection, decomposition, DAG construction and cycle rejection,
+  scheduling, synchronisation nodes, gate evaluation, state persistence and resume, approvals,
+  audit, metrics, and the API all operate normally without a daemon. A run that never calls
+  `run_tests` never touches Docker.
+- **`run_tests` must never degrade.** If the daemon is unavailable or a sandbox image is
+  missing, the capability fails closed with a typed `SandboxUnavailable` error and the task
+  takes the declared safe-stop path. It does not skip the tests, does not report them as
+  passing, and above all **does not fall back to executing agent-authored code on the host** —
+  without the sandbox there is no boundary, and unsandboxed execution would be worse than no
+  execution.
+
+**Risk accepted**: an environment without Docker loses the `run_tests` capability entirely, so
+a plan depending on it cannot complete there. That is the intended trade — a loud, typed,
+audited stop in exchange for never running unbounded agent code. Sandbox images are built by
+`ops/sandbox/build-images.sh`, a provisioning step; the runtime never builds or pulls, so an
+agent cannot cause an image to be created or influence its contents.
+
+**Residual risk, unchanged from R15**: containers share the host kernel; a container-escape
+vulnerability is not defended against. The threat model is agent over-reach, not adversarial
+exploitation.
+
 ## Recorded risks (accepted at approval)
 
 All three were ruled on by the requirement owner — the first two at the Gate II approval,
@@ -304,3 +340,20 @@ very hot link serialises its own counter updates. Retained as a **measurable per
 risk**: load verification must exercise skewed traffic, not only uniform traffic. If
 measurement shows it limiting NFR-001, it becomes a brownfield candidate on R13's ladder —
 batching or a materialised aggregate before any cache tier. **Not to be pre-optimised.**
+
+> **Measured 2026-08-20 (T098)** — `perf/baseline-2026-08-20.md`. The risk is **real,
+> quantified, and not material at the approved operating point**. Concentrating 70% of traffic
+> onto 5 links raised the counter `UPDATE` mean from 0.072 ms to 0.088 ms (+22%) and produced
+> one 29.21 ms outlier and a single observed lock wait in 24 samples. It did not move p95
+> (6.82 ms nominal → 6.62 ms skewed) and moved p99 by 0.8 ms.
+>
+> Both profiles **PASS** the approved target with large margins: 100 rps sustained, p95 ≈ 6.8 ms
+> against a 150 ms budget (~22× headroom), p99 ≈ 11 ms against 400 ms (~34×), zero errors across
+> 24,000 redirects. Active connections peaked at 2 of 16, and database time was ~0.24 ms of a
+> ~5.4 ms request, so neither pooling nor query shape is a factor.
+>
+> **Redis remains unjustified**: R13's first condition — a measured budget breach — is not met,
+> so the ladder does not begin. One finding worth carrying forward: the `redirect_event`
+> **insert**, not the counter update, is the largest database contributor in both profiles.
+> If optimisation is ever needed, that is where the evidence points — contrary to what this
+> risk entry anticipated. Recorded, not acted on. **Gate II is unchanged.**

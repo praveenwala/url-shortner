@@ -1,0 +1,28 @@
+{
+  "profile": "A-nominal",
+  "target_rps": 100.0,
+  "duration_s": 120.0,
+  "total_requests": 12000,
+  "successful_redirects": 12000,
+  "errors": 0,
+  "error_rate": 0.0,
+  "throughput_rps": 100.0,
+  "latency_ms": {
+    "p50": 5.27,
+    "p95": 6.82,
+    "p99": 10.84,
+    "max": 65.07,
+    "mean": 5.61
+  },
+  "scheduler_lag_ms": {
+    "p50": 0.55,
+    "p95": 0.77,
+    "max": 4.45
+  },
+  "status_counts": {
+    "302": 12000
+  },
+  "hot_share": 0.0,
+  "hot_size": 0,
+  "corpus_size": 100000
+}

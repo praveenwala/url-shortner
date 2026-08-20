@@ -102,11 +102,17 @@ question, FR-028), `resolution_state`, `submitted_by`, `submitted_at`.
 ### workflow_run
 
 `id`, `requirement_id`, `state`, `waiting_on` (nullable — which approval or clarification),
-`wall_clock_ceiling`, `retry_ceiling` (NFR-009), `started_at`, `ended_at`.
+`wall_clock_ceiling`, `retry_ceiling` (NFR-009), `approved_scope` (`jsonb` — the requirement
+references this run is authorised to work within, FR-039), `started_at`, `ended_at`.
+
+**`approved_scope` is the FR-039 boundary.** A task whose `requirement_ref` is absent from it
+halts and surfaces for human decision rather than being absorbed into the run. See
+*Scope-widening rule* below for how it may change.
 
 **States** (R7): `PLANNING` → `AWAITING_PLAN_APPROVAL` → `EXECUTING` ⇄ `WAITING_FOR_HUMAN`,
 with `REPLANNING` enterable from `EXECUTING`, terminating in `COMPLETED`, `FAILED`,
-`SAFE_STOPPED`, or `ABANDONED`. `WAITING_FOR_HUMAN` is a persisted state, not a blocked
+`SAFE_STOPPED`, or `ABANDONED`. `SAFE_STOPPED` is reachable from every non-terminal state
+(research R7 correction): a run must always be able to stop safely. `WAITING_FOR_HUMAN` is a persisted state, not a blocked
 process — nothing runs while a run sits in it (FR-049), and it never expires into autonomous
 execution.
 
@@ -115,8 +121,21 @@ execution.
 `id`, `run_id`, `description`, `requirement_ref` (mandatory — a node without one is refused,
 FR-035), `execution_mode` (`agent_authored` | `human_executed`, fixed at planning time and
 never escalated, FR-042), `surface` (`shortener` | `orchestrator` | `console` — determines
-the agent path allow-list, R6), `inputs`, `outputs`, `state`, `is_stale`, `attempt_count`,
-`timeout`, `max_attempts`, `backoff` (FR-030), `fallback`, `rollback_ref`.
+the agent path allow-list, R6), `declared_inputs`, `declared_outputs` (`jsonb`; explicit
+repo-relative artifact paths inside the task's own surface), `is_sync`, `state`, `is_stale`,
+`attempt_count`, `timeout_seconds`, `max_attempts`, `backoff_seconds` (FR-030), `result`,
+`supersedes` (nullable — the node this one replaces after a selective replan).
+
+**`supersedes` is a link, never a deletion** (FR-033). A replanned node points back at the one
+it replaces; the superseded node keeps its state and its result, so "what did we previously
+conclude, and why are we redoing it" stays answerable. Combined with `is_stale`, this is what
+makes replanning selective rather than destructive: the old node is flagged, not erased, and
+the new node is added, not swapped in.
+
+**`declared_outputs` is the agent write allow-list** (FR-041). It is fixed at planning time
+and cannot be widened during execution; widening requires replanning, which replaces the node
+rather than mutating it. A task may read a module it must not modify, so the read set is
+never derived from this field.
 
 **States** (R7): `PENDING` → `READY` → `RUNNING` → `SUCCEEDED` | `FAILED` | `ROLLED_BACK` |
 `SKIPPED`. `is_stale` is a flag orthogonal to state, so a stale-but-succeeded node keeps the
@@ -145,10 +164,12 @@ failed while another succeeded (FR-024, and the matching edge case).
 
 ### approval_record
 
-`id`, `run_id`, `checkpoint`, `human_actor`, `approver_role_held`, `decision`, `rationale`,
+`id`, `run_id`, `request_id` (the `approval_request` this decides), `checkpoint`,
+`human_actor`, `approver_role_held`, `decision` (`approved` | `rejected`), `rationale`,
 `decided_at`. An approval from an identity lacking the approver role is rejected and audited
 (FR-029, FR-050). No agent-reachable code path writes this table — the agent tool surface
-(R6) contains no tool that can.
+(R6) contains no tool that can, and an agent identity cannot be constructed holding the
+approver role at all.
 
 ### decision_record
 
@@ -157,17 +178,82 @@ failed while another succeeded (FR-024, and the matching edge case).
 
 ### change_record
 
-`id`, `task_id`, `surface`, `artifact_path`, `execution_mode`, `prior_state` (what a revert
-restores), `applied_at`, `approving_human` (nullable; required where the change crossed a
-checkpoint). Every agent-authored change is revertible (FR-044); approval is captured
-*before* apply, never after (FR-043).
+`id`, `run_id`, `task_id`, `surface`, `artifact_path`, `execution_mode`, `existed` (whether
+the artifact existed before the change — a revert deletes it if not), `prior_state` (what a
+revert restores), `prior_sha256`, `new_sha256`, `applied_at`, `approving_human` (nullable;
+required where the change crossed a checkpoint).
+
+Every agent-authored change is revertible (FR-044); approval is captured *before* apply,
+never after (FR-043). The two hashes are what make revert safe rather than hopeful:
+`new_sha256` is compared against the artifact's current content before restoring, so a
+rollback refuses to clobber an edit made after the record was written, and `prior_sha256`
+verifies what was restored. `run_id` exists so rollback can find a run's changes after a
+process restart, when nothing survives in memory.
+
+### approval_request
+
+`id`, `run_id`, `task_ref` (nullable — present when the checkpoint arose from a specific
+task), `checkpoint` (`architecture` | `security` | `destructive` | `release` | `governance` |
+`scope`), `action_type` (the tool or operation halted, e.g. `write_file`,
+`task_out_of_scope`), `detail` (`jsonb` — the action's parameters, excluding proposed file
+content), `action_fingerprint` (SHA-256 over the canonicalised detail), `requested_by`,
+`state` (`pending` | `decided`), `requested_at`, and the deciding `approval_record`
+(referenced by `approval_record.request_id`, resolved at read time rather than duplicated
+here) with its `decided_at`.
+
+**`action_fingerprint` is why an approval is not a standing permission.** An approval
+authorises exactly the action whose fingerprint it carries. Approving a write to
+`specs/…/plan.md` does not authorise a write to `.specify/memory/constitution.md`, and a
+second attempt at a different action raises a fresh request. A request can be decided once;
+a second decision on the same request is refused.
+
+### rollback_event
+
+`id`, `run_id`, `change_id` (FK → `change_record` — the change this reverses), `outcome`
+(`succeeded` | `failed`), `reason` (nullable; populated on failure), `actor`, `occurred_at`.
+
+A rollback is an event in its own right rather than a mutation of the change record, so the
+history of an artifact remains readable: what was applied, what was reverted, and what failed
+to revert. **A failed rollback is the dangerous case** — the artifact is in neither the prior
+nor the intended state — so it safe-stops the run and is audited (`ROLLBACK_FAILED` and
+`SAFE_STOP_ROLLBACK_FAILED`) rather than being retried (FR-031, FR-032, FR-044).
 
 ### audit_event
 
-`id`, `run_id`, `event_type`, `actor`, `payload` (`jsonb`), `occurred_at`. **Append-only**:
+`id`, `run_id`, `event_type`, `actor`, `trace_id`, `span_id` (the correlation fields fixed in
+`contracts/correlation.md`), `payload` (`jsonb`), `occurred_at`. **Append-only**:
 the store layer exposes no update or delete path, and the service role holds `INSERT` and
 `SELECT` but not `UPDATE`/`DELETE` on this table — immutability enforced by database
 privilege, not only by code (FR-036). Payloads carry no secrets or personal data (FR-038).
+
+### clarification_request
+
+`id`, `run_id`, `requirement_id` (the requirement being clarified), `question`, `affects`
+(`scope` | `security` | `user_visible_behaviour`), `rule` (which ambiguity rule fired),
+`round`, `requested_by`, `requested_at`, `state` (`pending` | `answered`), `answer`,
+`answered_by`, `answered_at`.
+
+Kept separate from `approval_request` because the two decide different things: an approval
+decides a proposed *action*, a clarification answers a *question*. Conflating them would make
+"approve" mean two things.
+
+**The answer is persisted before the run resumes** (FR-046, FR-049). Recording it and leaving
+`WAITING_FOR_HUMAN` are separate steps, so a lost write cannot resume a run that was never
+actually clarified. `round` bounds the loop: after three rounds the run safe-stops rather than
+asking forever (Principle VII). `requirement_id` is what lets a later run see that a question
+was already asked and answered.
+
+### change_request
+
+`id`, `run_id`, `prior_requirement_id` (FK → `requirement` — the requirement being changed),
+`text` (the new or amended requirement), `reason` (**why replanning was triggered**),
+`submitted_by`, `submitted_at`, `state` (`submitted` | `analysed` | `awaiting_approval` |
+`replanned`).
+
+Distinct from `requirement` on purpose: a change request is an *event against an existing
+run*, carrying the trigger and the link to what came before. Recording `reason` separately
+from `text` is what lets a reviewer see why a replan happened without inferring it from the
+diff between two requirement texts.
 
 ### replan_event
 
@@ -186,6 +272,22 @@ requirement → tasks/changes/tests, and change → originating requirement (FR-
 Not stored; computed from the tables above per R11. Success rate and retry/rollback frequency
 come from `workflow_run` and `task_node`; MTTR and end-to-end latency come from `audit_event`
 timestamps with time in `WAITING_FOR_HUMAN` excluded and reported separately.
+
+## Scope-widening rule (FR-039)
+
+Recorded here because `approved_scope` is a column whose *mutation path* is the control, not
+the value itself.
+
+1. **Scope may be widened only through an approved `SCOPE` approval request.** An out-of-scope
+   task raises a `SCOPE` checkpoint, the run halts, and a human decides.
+2. **A rejected scope request does not modify `approved_scope`.** Attempting to widen from a
+   rejected request is refused.
+3. **Direct or operator mutation of `approved_scope` outside the approval flow is
+   prohibited.** The column is written by the approval path and by initial run setup; nothing
+   else may edit it. A run must never widen its own scope.
+4. **Repeated out-of-scope attempts stay blocked** until a new approved scope decision exists.
+   Raising the checkpoint again is the correct behaviour, not an error to suppress — silently
+   absorbing the work is exactly the FR-039 failure.
 
 ## Console state
 

@@ -21,6 +21,7 @@ markers = [
     "integration: real PostgreSQL via Testcontainers",
     "workflow: full orchestration runs",
     "failure: failure-path behaviour",
+    "contract: published contract matches the running application",
 ]
 
 [tool.ruff]

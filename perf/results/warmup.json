@@ -1,0 +1,28 @@
+{
+  "profile": "warmup",
+  "target_rps": 100.0,
+  "duration_s": 6.0,
+  "total_requests": 600,
+  "successful_redirects": 600,
+  "errors": 0,
+  "error_rate": 0.0,
+  "throughput_rps": 100.01,
+  "latency_ms": {
+    "p50": 6.21,
+    "p95": 7.45,
+    "p99": 10.13,
+    "max": 21.69,
+    "mean": 6.35
+  },
+  "scheduler_lag_ms": {
+    "p50": 0.48,
+    "p95": 0.61,
+    "max": 1.88
+  },
+  "status_counts": {
+    "302": 600
+  },
+  "hot_share": 0.0,
+  "hot_size": 0,
+  "corpus_size": 100000
+}

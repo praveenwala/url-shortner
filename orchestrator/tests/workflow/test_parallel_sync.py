@@ -20,6 +20,7 @@ def _node(nid, deps=None, sync=False):
         id=nid, description=f"task {nid}", requirement_ref="FR-023",
         execution_mode=ExecutionMode.AGENT_AUTHORED, surface=Surface.ORCHESTRATOR,
         depends_on=deps or [], is_sync=sync,
+        declared_outputs=() if sync else (f"orchestrator/src/{nid}.py",),
     )
 
 

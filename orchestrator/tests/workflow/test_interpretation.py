@@ -23,6 +23,7 @@ def _node(nid: str, **kw) -> TaskNode:
         requirement_ref=kw.pop("requirement_ref", "FR-001"),
         execution_mode=kw.pop("execution_mode", ExecutionMode.AGENT_AUTHORED),
         surface=kw.pop("surface", Surface.ORCHESTRATOR),
+        declared_outputs=kw.pop("declared_outputs", (f"orchestrator/src/{nid}.py",)),
         **kw,
     )
 

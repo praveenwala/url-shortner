@@ -18,6 +18,17 @@ are additive-only within a major version.
 
 `invalid_scheme` · `malformed_url` · `url_too_long` · `alias_conflict` · `alias_reserved`
 · `alias_malformed` · `not_found` · `expired` · `revoked` · `rate_limited` · `forbidden`
+· `redirect_not_recorded`
+
+`redirect_not_recorded` (503) was added during US1 implementation: it is the caller-visible
+consequence of rule 9 below — a redirect that cannot be durably counted is not served, and the
+caller is told so in a stable identifier rather than receiving an unhandled 500. Additive
+within v1, so a client that does not know it still sees a 5xx.
+
+**Status mapping**: `not_found` → 404 · `expired`, `revoked` → **410 Gone** (the link existed;
+a 404 would hide why it stopped resolving) · `forbidden` → 403 when the caller is identified
+but is not the creator, **401** when no `X-Client-Id` is supplied at all · `redirect_not_recorded`
+→ 503 · everything else → 400.
 
 The distinctness of `not_found` / `expired` / `revoked` / `alias_malformed` is required by
 FR-009 and verified by SC-004 — a client must never have to parse prose to tell them apart.
@@ -31,6 +42,33 @@ FR-009 and verified by SC-004 — a client must never have to parse prose to tel
 | Revoke link | `POST /v1/links/{code}/revoke` | Creator disables a link | Revoked; or `forbidden`, `not_found` (FR-012) |
 | Analytics summary | `GET /v1/links/{code}/analytics` | Total count, first and most recent redirect timestamps | Summary; or `forbidden` for a non-creating client (FR-014) |
 | Event history | `GET /v1/links/{code}/events` | Paginated redirect events | Bounded page, stable ordering, next-page cursor, and the retention window so an empty page is distinguishable from an aged-out one (FR-014) |
+
+## Reconciliation with the generated OpenAPI (T030, 2026-08-20)
+
+The document generated from the running Spring Boot application is
+[`docs/contracts/shortener-openapi.json`](../../../docs/contracts/shortener-openapi.json),
+produced by `OpenApiGeneratorTest` from springdoc's `/v3/api-docs`. Every difference found
+against this contract is recorded below.
+
+| Difference | Category | Resolution |
+|-----------|----------|-----------|
+| Generated document advertised `200` for link creation; the service returns `201` | **implementation bug** (documentation) | **Fixed.** springdoc's default was never corrected. Annotated, so the published document states 201 |
+| Generated document advertised `200` for the redirect; the service returns `302` with three non-cacheable headers | **implementation bug** (documentation) | **Fixed.** Documented as 302 with `Location`, `Cache-Control`, `Pragma`, `Expires`. A published 200 would hide the single property clients most need to respect — a cached redirect never reaches the service, so counts drift and revoked links keep resolving |
+| No error responses documented at all — no 400/401/403/404/410/503, no `ApiError` schema | **implementation bug** (documentation) | **Fixed.** `ApiError` is now published and referenced by every documented failure, so a client reading the contract can see the stable `error` identifiers exist to branch on (FR-016, SC-004) |
+| `X-Client-Id` undocumented on owner-scoped operations | **implementation bug** (documentation) | **Fixed.** Documented as a required header on create, revoke, and analytics. Runtime stays lenient so the service can return its own `401` rather than Spring's generic `400` |
+| `GET /v1/links/{code}/events` declared, not implemented | **intentionally deferred** | Paginated event history remains deferred. Pinned in the parity test's `DEFERRED` set so a deferral is an entry someone must edit, not a silent absence |
+| `alias_conflict`, `alias_reserved`, `alias_malformed`, `rate_limited` identifiers declared, unreachable | **intentionally deferred** | Custom aliases and rate limiting are deferred. The identifiers stay in the enum for when the capability lands; a test asserts no route can produce them today |
+| springdoc's own `/v3/api-docs` and `/swagger-ui` routes are served | **additive compatible** | Documentation infrastructure, not product surface. Excluded from the undeclared-route check by name |
+| Path parameter spelling and ordering | **cosmetic** | Not changed; the checker normalises parameter names and compares structure |
+
+**No runtime behaviour changed.** Every fix above is an annotation that makes the published
+document describe what the service already did.
+
+**Parity is enforced automatically.** `OpenApiParityTest` (24 tests) fails the build when an
+undeclared endpoint is served, a non-deferred declared endpoint is absent, the committed
+artifact is stale, a request or response shape drifts, an error status or identifier drifts, or
+a required redirect header disappears. All three failure modes were verified by deliberately
+introducing drift and confirming the suite failed.
 
 ## Contract rules
 
