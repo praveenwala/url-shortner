@@ -148,6 +148,64 @@ export type Api = {
   ): Promise<ClarificationResult>;
 };
 
+/**
+ * A response that is not what the contract promises.
+ *
+ * Distinct from the server's own error envelope: that means the API answered
+ * and said no, which callers may reasonably display. This means the thing that
+ * answered was not the API, or did not honour its own shape — a routing
+ * failure, a proxy outage, a contract break. Those must not reach a view.
+ */
+export class ApiClientError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "ApiClientError";
+  }
+}
+
+/** Names a value's shape without reproducing it. */
+function shapeOf(value: unknown): string {
+  if (Array.isArray(value)) return "array";
+  if (value === null) return "null";
+  return typeof value;
+}
+
+/**
+ * Parse strictly.
+ *
+ * The previous `.catch(() => ({}))` is what turned a misrouted HTML page into
+ * a fabricated object that `as T` then presented as `Gate[]`. Diagnosis needs
+ * the path, the status and the content type; it never needs the body, which
+ * could carry anything, so only its size is reported.
+ */
+async function parseJson(response: Response, path: string): Promise<unknown> {
+  const contentType = response.headers.get("content-type") ?? "unknown";
+  const text = await response.text();
+  try {
+    return JSON.parse(text);
+  } catch {
+    throw new ApiClientError(
+      `${path}: expected a JSON response but could not parse one ` +
+        `(HTTP ${response.status}, Content-Type ${contentType}, ${text.length} bytes). ` +
+        `The API is most likely not routed — check that /v1 reaches the orchestrator.`,
+    );
+  }
+}
+
+/**
+ * The contract declares these endpoints return arrays, so a non-array is an
+ * error — never an empty array. Normalising to `[]` would render "no gates" and
+ * make a routing outage look like a healthy, idle system.
+ */
+function expectArray<T>(value: unknown, path: string): T[] {
+  if (!Array.isArray(value)) {
+    throw new ApiClientError(
+      `${path}: the contract requires a JSON array, received ${shapeOf(value)}.`,
+    );
+  }
+  return value as T[];
+}
+
 async function request<T>(path: string, actorId?: string, init?: RequestInit): Promise<T> {
   const headers: Record<string, string> = { "Content-Type": "application/json" };
   // Identity only. Roles come from the server-side directory — a header cannot
@@ -155,25 +213,49 @@ async function request<T>(path: string, actorId?: string, init?: RequestInit): P
   if (actorId) headers["X-Actor-Id"] = actorId;
 
   const response = await fetch(path, { ...init, headers });
-  const body = await response.json().catch(() => ({}));
+
   if (!response.ok) {
-    const message = (body as { message?: string }).message ?? response.statusText;
-    const code = (body as { error?: string }).error ?? "error";
-    throw new Error(`${code}: ${message}`);
+    // The server's own envelope is parsed leniently: a failure that is also
+    // unparseable is still a failure, and the status carries the meaning.
+    let envelope: { error?: string; message?: string } = {};
+    try {
+      envelope = JSON.parse(await response.text());
+    } catch {
+      envelope = {};
+    }
+    throw new Error(`${envelope.error ?? "error"}: ${envelope.message ?? response.statusText}`);
   }
-  return body as T;
+
+  return (await parseJson(response, path)) as T;
+}
+
+async function requestArray<T>(path: string): Promise<T[]> {
+  return expectArray<T>(await request<unknown>(path), path);
 }
 
 export function createApi(baseUrl = ""): Api {
   const at = (path: string) => `${baseUrl}/v1${path}`;
   return {
-    listRuns: () => request(at("/runs")),
+    listRuns: () => requestArray<RunSummary>(at("/runs")),
     getRun: (runId) => request(at(`/runs/${runId}`)),
-    getGraph: (runId) => request(at(`/runs/${runId}/graph`)),
-    getGates: (runId) => request(at(`/runs/${runId}/gates`)),
-    getDecisions: (runId) => request(at(`/runs/${runId}/decisions`)),
-    getAudit: (runId) => request(at(`/runs/${runId}/audit`)),
-    getPending: (runId) => request(at(`/runs/${runId}/pending`)),
+    getGraph: async (runId) => {
+      const path = at(`/runs/${runId}/graph`);
+      const graph = await request<Graph>(path);
+      // A graph is an object, but both of its collections are arrays.
+      expectArray(graph?.nodes, `${path}.nodes`);
+      expectArray(graph?.edges, `${path}.edges`);
+      return graph;
+    },
+    getGates: (runId) => requestArray<Gate>(at(`/runs/${runId}/gates`)),
+    getDecisions: (runId) => requestArray<LineageItem>(at(`/runs/${runId}/decisions`)),
+    getAudit: (runId) => requestArray<AuditEvent>(at(`/runs/${runId}/audit`)),
+    getPending: async (runId) => {
+      const path = at(`/runs/${runId}/pending`);
+      const pending = await request<Pending>(path);
+      expectArray(pending?.approvals, `${path}.approvals`);
+      expectArray(pending?.clarifications, `${path}.clarifications`);
+      return pending;
+    },
     decideApproval: (runId, requestId, body, actorId) =>
       request(at(`/runs/${runId}/approvals/${requestId}`), actorId, {
         method: "POST",
