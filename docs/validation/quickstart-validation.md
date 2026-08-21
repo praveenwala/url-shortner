@@ -355,6 +355,39 @@ the runtime's docker verb set is an enforced minimum, and improving an error mes
 reason to widen it. The call was removed and a further guard added asserting readiness introduces
 no new docker subcommand.
 
+## 8b. Post-submission: CI-discovered runtime fail-closed defect
+
+A second defect of the same class as §8a, found by the same CI run. **No earlier evidence is
+revised** — this records what CI found after the T103 sign-off.
+
+**Defect: exit status was being treated as availability.**
+
+`sandbox.docker_available` returned `probe.returncode == 0` for
+`docker info --format '{{.ServerVersion}}'`. Some Docker CLI versions exit **0** for that command
+even when the daemon is unreachable, rendering an empty or `<no value>` ServerVersion. On such a
+CLI the check reported a daemon that was not there. On the development machine the same command
+exits 1, so the fault was invisible locally and only appeared on the GitHub-hosted runner.
+
+**Why it is a fail-closed defect, not cosmetic.** `docker_available` gates `require_sandbox`,
+which is the control that stops `run_tests` from executing agent-authored code without a boundary.
+A false positive means `require_sandbox` passes and execution proceeds instead of raising
+`SandboxUnavailable` and safe-stopping. The correction makes the control **stronger**: anything
+short of "exited cleanly and named a version" is now unavailable — non-zero exit, empty or
+`<no value>` version, missing binary, or timeout — and failing towards *unavailable* is the safe
+direction.
+
+**Correction.** Availability now requires exit 0 **and** a real, non-empty ServerVersion. Eleven
+regression tests pin every case, including that an unusable daemon makes `require_sandbox` raise
+`SandboxUnavailable`; four fail against the previous implementation.
+
+**The test that caught it was not weakened.** `test_fail_closed_real.py`'s precondition assertion
+— `docker_available() is False`, with the message that the rest of the file would otherwise be
+testing nothing — is unchanged. It was correct throughout: on that runner the precondition
+genuinely was not established, and it said so rather than passing quietly.
+
+**Scope held.** No API or OpenAPI change, no network-isolation change, no broadened agent
+capability, no change to requirement status or human decisions.
+
 ## 9. Evidence classification
 
 | Class | What it covers here |

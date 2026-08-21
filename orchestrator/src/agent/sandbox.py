@@ -61,16 +61,30 @@ class SandboxResult:
 
 
 def docker_available() -> bool:
+    """Whether a usable Docker daemon is reachable.
+
+    **Exit status alone is not availability.** Some Docker CLI versions exit 0 for
+    `docker info --format` even when the daemon is unreachable, rendering an empty or
+    `<no value>` ServerVersion. This check previously trusted the return code, so on such a
+    CLI it reported a daemon that was not there — and `require_sandbox` gates the fail-closed
+    control on this answer. A daemon that cannot name its own version is not one we will
+    sandbox agent-authored code against.
+
+    Anything short of "exited cleanly and named a version" is unavailable: a non-zero exit, an
+    empty or `<no value>` version, a missing binary (`OSError`), or a timeout
+    (`subprocess.SubprocessError`). Failing towards *unavailable* is the safe direction — it
+    safe-stops the run rather than proceeding without a boundary.
+    """
     try:
-        return (
-            subprocess.run(
-                ["docker", "info", "--format", "{{.ServerVersion}}"],
-                capture_output=True, timeout=15, check=False,
-            ).returncode
-            == 0
+        probe = subprocess.run(
+            ["docker", "info", "--format", "{{.ServerVersion}}"],
+            capture_output=True, text=True, timeout=15, check=False,
         )
     except (OSError, subprocess.SubprocessError):
         return False
+
+    version = (probe.stdout or "").strip()
+    return probe.returncode == 0 and version not in ("", "<no value>")
 
 
 def image_present(image: str) -> bool:
