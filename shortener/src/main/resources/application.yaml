@@ -20,7 +20,11 @@ spring:
     enabled: true
     locations: classpath:db/migration
 
-# Analytics serving pool — separate from the redirect path on purpose (NFR-002).
+# DEFERRED — NOT IN EFFECT. No @Configuration binds this block, so Spring creates a single
+# DataSource and these values are inert. Retained as the shape a second pool would take, not as a
+# claim that one exists. Separate pooling is justified when FR-014 event-history analytics lands;
+# today the analytics summary is a bounded primary-key lookup against counters denormalised onto
+# short_link and never scans redirect_event. See docs/HLD.md §4.1 and tasks.md § Deferred Capabilities.
 shortener:
   analytics:
     datasource:
