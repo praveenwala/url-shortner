@@ -255,16 +255,83 @@ def start_postgres_dependency(network: str, password: str, image: str = "postgre
     return name
 
 
-def wait_for_postgres(container: str, attempts: int = 30) -> bool:
-    for _ in range(attempts):
+#: Credentials and database the disposable dependency is created with. Readiness must be
+#: checked against *these*, not against the server's default database.
+POSTGRES_DEPENDENCY_USER = "postgres"
+POSTGRES_DEPENDENCY_DB = "agent_test"
+
+#: Bounded readiness gate. Deadline-based, polled — never an unbounded loop, never a fixed sleep.
+READINESS_TIMEOUT_SECONDS = 60.0
+READINESS_POLL_SECONDS = 1.0
+#: Consecutive successful queries required before the database is called ready.
+#:
+#: One success is not sufficient. The official postgres entrypoint starts a *temporary* server
+#: to run initdb and create POSTGRES_DB, serves connections on it, then shuts it down and starts
+#: the real server. A probe landing in that window succeeds, and the next client sees
+#: "FATAL: the database system is starting up". Requiring three successes spaced by the poll
+#: interval spans the restart. Three is the smallest streak that covers the observed failure.
+READINESS_CONSECUTIVE_OK = 3
+
+
+def wait_for_postgres(
+    container: str,
+    *,
+    user: str = POSTGRES_DEPENDENCY_USER,
+    database: str = POSTGRES_DEPENDENCY_DB,
+    timeout_seconds: float = READINESS_TIMEOUT_SECONDS,
+    poll_seconds: float = READINESS_POLL_SECONDS,
+    consecutive_ok: int = READINESS_CONSECUTIVE_OK,
+) -> bool:
+    """Block until the disposable database can actually answer a query, or fail.
+
+    **Process readiness is not database readiness.** This previously polled
+    `pg_isready -U postgres`, which reports that *a* server is accepting connections — including
+    the entrypoint's temporary initialisation server, and without regard to whether the target
+    database exists. Integration runs were therefore started against a server that was about to
+    restart. CI surfaced it as `FATAL: the database system is starting up`.
+
+    Readiness now means: the container is reachable, `database` exists, and a real `SELECT`
+    against it succeeds, repeatedly enough to prove the initialisation transition is over.
+
+    The probe runs over the container's local socket, so **no password appears in any argv** —
+    putting one there would leak it into the host process list, a worse exposure than the gap it
+    would close. Password authentication is exercised immediately afterwards by the integration
+    run itself, which connects over TCP with the generated credential.
+
+    Raises :class:`SandboxError` on timeout, naming the container, the database, the bound
+    applied and the last probe error. Returns True on success, so existing truthiness checks
+    keep working.
+    """
+    deadline = time.monotonic() + timeout_seconds
+    streak = 0
+    last_error = "no probe completed"
+
+    while time.monotonic() < deadline:
         probe = subprocess.run(
-            ["docker", "exec", container, "pg_isready", "-U", "postgres"],
-            capture_output=True, check=False, timeout=15,
+            ["docker", "exec", container,
+             "psql", "-U", user, "-d", database, "-tAc", "select 1"],
+            capture_output=True, text=True, check=False, timeout=15,
         )
-        if probe.returncode == 0:
-            return True
-        time.sleep(1)
-    return False
+        if probe.returncode == 0 and (probe.stdout or "").strip() == "1":
+            streak += 1
+            if streak >= consecutive_ok:
+                return True
+        else:
+            streak = 0
+            detail = ((probe.stderr or "") + (probe.stdout or "")).strip().splitlines()
+            last_error = detail[-1] if detail else f"exit {probe.returncode}"
+        time.sleep(poll_seconds)
+
+    # Deliberately no `docker logs` here. The runtime's docker subcommand set is an enforced
+    # minimum (`test_runtime_docker_subcommands_are_the_expected_minimum`), and adding an eighth
+    # verb to improve an error message is not a trade the boundary should make silently. The
+    # probe's own last error is the diagnosis, and it is the same line the server would log.
+    raise SandboxError(
+        f"disposable postgres {container!r} did not become query-ready for database "
+        f"{database!r} within {timeout_seconds:g}s "
+        f"(needed {consecutive_ok} consecutive successful queries, polling every "
+        f"{poll_seconds:g}s; last probe error: {last_error!r})"
+    )
 
 
 def stop_container(name: str) -> None:

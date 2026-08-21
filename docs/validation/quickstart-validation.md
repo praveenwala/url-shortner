@@ -313,6 +313,48 @@ rerun; **C** was independently valid and not repeated.
 
 ---
 
+## 8a. Post-submission: CI-discovered runtime reliability defect
+
+Recorded after the T103 sign-off, during PR #1 CI. **The earlier evidence in this document is not
+revised** — it was accurate for what was run at the time. This section records what CI found that
+local verification had not.
+
+**Defect: container/process readiness was being treated as database readiness.**
+
+`sandbox.wait_for_postgres` polled `pg_isready -U postgres` over the container's local socket. That
+reports only that *a* server is accepting connections — including the entrypoint's **temporary**
+initialisation server, and without regard to whether the target database exists. The official
+postgres entrypoint starts that temporary server to run `initdb` and create `POSTGRES_DB`, then
+shuts it down and starts the real server. Readiness could therefore be granted inside that window,
+and the next client saw `FATAL: the database system is starting up`.
+
+This was **runtime code, not test-only debt**: `testrunner._run_with_database` uses the same helper
+to gate every real integration `run_tests` execution.
+
+**Why local verification missed it.** The race is timing-dependent and did not reproduce on the
+development machine; the symptom appeared as the intermittent full-suite failure recorded in the
+T100 audit §8.3 as *"known intermittency of unknown identity"*. CI's slower, colder container start
+made it reproducible. That earlier record stands as written — this section identifies what it was.
+
+**Correction.** Readiness now means the target database answers a real query:
+`psql -U postgres -d agent_test -tAc 'select 1'`, requiring **3 consecutive successes at 1.0s
+intervals within a 60s monotonic deadline**. The streak is what spans the temporary-server restart;
+a single success cannot. On timeout it raises the existing typed `SandboxError` naming the
+container, database, bound applied, and last probe error. Ten regression tests pin the behaviour,
+verified to fail (8 of 10) against the original implementation.
+
+**Scope held.** No network isolation change, no host fallback, no broadened agent capability, no API
+or OpenAPI change. The probe runs over the container's local socket so **no credential enters any
+argv** — a password there would leak into the host process list, a worse exposure than the gap it
+would close; password authentication is exercised immediately afterwards by the integration run's
+own TCP DSN.
+
+**A boundary held during the fix.** The first version of this correction called `docker logs` to
+enrich the error message. `test_runtime_docker_subcommands_are_the_expected_minimum` failed it —
+the runtime's docker verb set is an enforced minimum, and improving an error message is not a
+reason to widen it. The call was removed and a further guard added asserting readiness introduces
+no new docker subcommand.
+
 ## 9. Evidence classification
 
 | Class | What it covers here |

@@ -27,7 +27,11 @@ pytestmark = pytest.mark.failure
 
 REPO = Path(__file__).resolve().parents[3]
 ORCHESTRATOR = REPO / "orchestrator"
-UNREACHABLE_DAEMON = "unix:///nonexistent/claude-t099/docker.sock"
+#: A deliberately refused endpoint. Port 1 is reserved and nothing listens on it, so a
+#: connection attempt is refused immediately and identically on macOS and on
+#: GitHub-hosted Linux runners. The original value was a nonexistent unix socket path,
+#: which disabled the daemon on macOS but not on the CI runner (see the fixture below).
+UNREACHABLE_DAEMON = "tcp://127.0.0.1:1"
 ABSENT_IMAGE = "agent-sandbox/never-built-t099:latest"
 ALL_APPROVALS = frozenset(
     {"interface", "acceptance_criteria", "dependencies", "security_constraints"}
@@ -44,6 +48,17 @@ def _node() -> TaskNode:
 
 @pytest.fixture
 def unreachable_daemon(monkeypatch):
+    """Point the Docker CLI at an endpoint that is certain to be refused.
+
+    `DOCKER_CONTEXT` is cleared first: a selected context supplies its own endpoint and can
+    leave the daemon reachable despite `DOCKER_HOST`, which is what made this fixture pass on
+    macOS and fail on a GitHub-hosted runner.
+
+    The precondition assertion below is deliberately kept and must not be relaxed. If the
+    environment is not genuinely simulating an unavailable daemon, every test in this file
+    would pass while proving nothing, so the fixture fails loudly instead.
+    """
+    monkeypatch.delenv("DOCKER_CONTEXT", raising=False)
     monkeypatch.setenv("DOCKER_HOST", UNREACHABLE_DAEMON)
     assert sandbox.docker_available() is False, (
         "DOCKER_HOST did not actually disable the daemon; the rest of this file "
