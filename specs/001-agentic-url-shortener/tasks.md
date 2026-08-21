@@ -634,6 +634,7 @@ Requirements are **unchanged**; these are deferred at the implementation level f
 | Creation rate limiting | FR-015 | `DEFERRED_APPROVED`. Designed, not built; R8 fixes 60/min, burst 10 | Low — one table and one filter |
 | Paginated event history | FR-014 (history half) | Designed, not built. Summary is built | Low — one query and a cursor |
 | Event retention sweep | FR-013 (retention half) | Designed, not built. Behaviour documented in T093 | Low — one scheduled chunked delete |
+| Separate analytics connection pool | NFR-002 (isolation half) | Designed, not built. `application.yaml` names an `analytics-pool` that no `@Configuration` binds; one pool exists. Not needed today — the analytics summary is a bounded PK lookup on denormalised counters and never scans `redirect_event`. Justified when FR-014 event-history analytics lands | Medium — a second DataSource plus its own EntityManagerFactory and transaction manager, or a JdbcTemplate read path |
 | Monthly range partitioning | R14 mechanism | **Removed** from the plan. Simple indexed table instead | Medium — a migration, only if scale demands |
 | Regression exit-gate test | FR-026 (US4 scenario 5) | Deferred; gates themselves are built and tested | Low |
 | Console gates/replan/metrics/audit screens | FR-045, FR-047 | API-visible; surfaced in the Run view where simple | Medium — four views |

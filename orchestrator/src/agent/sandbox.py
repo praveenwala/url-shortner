@@ -23,6 +23,7 @@ from pathlib import Path
 
 from src.agent.errors import SandboxError, SandboxUnavailable
 from src.models.states import Surface
+from src.obs import logging as olog
 
 # Never copied into the sandbox. Some are secrets, some are the governance and
 # operational trees an agent must not see, some are just noise.
@@ -102,6 +103,10 @@ def image_present(image: str) -> bool:
         return result.returncode == 0
     except (OSError, subprocess.SubprocessError):
         return False
+
+
+def _log_sandbox_unavailable(reason: str, image: str) -> None:
+    olog.error("sandbox_unavailable", reason, outcome="safe_stop", image=image)
 
 
 def require_sandbox(image: str) -> None:

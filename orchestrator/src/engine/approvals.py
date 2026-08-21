@@ -18,6 +18,7 @@ from sqlalchemy import Engine, text
 
 from src.api.errors import ErrorCode, OrchestratorError
 from src.engine.identity import APPROVER_ROLE, Actor
+from src.obs import logging as olog
 from src.trace.correlation import now
 
 
@@ -128,6 +129,11 @@ class ApprovalService:
         ]
 
     # -- decide --------------------------------------------------------------
+    @staticmethod
+    def _log_decision(request_id: str, run_id: str, actor: str, decision: Decision) -> None:
+        olog.log("approval_decision", run_id=run_id, actor_id=actor,
+                 outcome=str(decision), request_id=request_id)
+
     def decide(
         self, request_id: str, *, actor: Actor, decision: Decision, rationale: str,
     ) -> ApprovalRecord:

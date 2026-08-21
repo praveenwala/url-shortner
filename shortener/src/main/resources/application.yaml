@@ -20,7 +20,11 @@ spring:
     enabled: true
     locations: classpath:db/migration
 
-# Analytics serving pool — separate from the redirect path on purpose (NFR-002).
+# DEFERRED — NOT IN EFFECT. No @Configuration binds this block, so Spring creates a single
+# DataSource and these values are inert. Retained as the shape a second pool would take, not as a
+# claim that one exists. Separate pooling is justified when FR-014 event-history analytics lands;
+# today the analytics summary is a bounded primary-key lookup against counters denormalised onto
+# short_link and never scans redirect_event. See docs/HLD.md §4.1 and tasks.md § Deferred Capabilities.
 shortener:
   analytics:
     datasource:
@@ -33,3 +37,27 @@ management:
     web:
       exposure:
         include: health,info
+  endpoint:
+    health:
+      # Liveness and readiness answer different questions and must not be conflated. Liveness
+      # says "this process is alive" — a database outage must NOT fail it, or the orchestrator
+      # restarts a healthy process in a loop that cannot help. Readiness says "this instance can
+      # serve traffic" and therefore does include the database.
+      probes:
+        enabled: true
+      group:
+        liveness:
+          include: livenessState
+        readiness:
+          include: readinessState,db
+  health:
+    db:
+      enabled: true
+
+spring.datasource.hikari:
+  # Bounded so a probe fails fast instead of hanging. Before this, /actuator/health blocked until
+  # the default 30s connection timeout when PostgreSQL was unreachable — long enough to trip probe
+  # deadlines and cause exactly the restart loop the liveness/readiness split exists to prevent.
+  connection-timeout: 3000
+  validation-timeout: 2000
+  initialization-fail-timeout: -1

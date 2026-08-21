@@ -114,6 +114,7 @@
   "paths": {
     "/health": {
       "get": {
+        "description": "Liveness. Deliberately touches nothing.\n\nThis answers \"is the process alive\", and must keep answering yes while the database is down \u2014\notherwise an orchestrator restarts a healthy process in a loop that cannot fix a dependency\noutage. Readiness is a separate question with a separate endpoint.",
         "operationId": "health_health_get",
         "responses": {
           "200": {
@@ -132,6 +133,30 @@
           }
         },
         "summary": "Health"
+      }
+    },
+    "/ready": {
+      "get": {
+        "description": "Readiness. Requires the database, within a bounded timeout.\n\nReturns 503 rather than raising, so a probe reads a status code instead of a stack trace. The\nbody names *which* dependency failed and its exception type \u2014 never the DSN, which carries a\npassword, and never the driver message, which quotes the DSN.",
+        "operationId": "ready_ready_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Ready Ready Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "503": {
+            "description": "a required dependency is unavailable"
+          }
+        },
+        "summary": "Ready"
       }
     },
     "/v1/runs": {

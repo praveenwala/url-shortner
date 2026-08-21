@@ -36,8 +36,11 @@ graph TB
     GATE --> OR
 ```
 
-- **Shortener service** — creates, resolves, revokes and reports analytics. Two connection pools
-  (`redirect-pool` 16, `analytics-pool` 4) so analytics load cannot starve the redirect path.
+- **Shortener service** — creates, resolves, revokes and reports analytics. One connection pool
+  (`redirect-pool`, 16). Analytics does not compete with the redirect path because the summary is
+  a bounded primary-key lookup against counters denormalised onto `short_link` — it never scans
+  `redirect_event`. A separate analytics pool is deferred until FR-014 event-history analytics
+  introduces a query shape that justifies one (§20).
 - **Orchestrator service** — DAG construction with cycle rejection, entry/exit gates, ambiguity
   detection, clarifications, approvals, bounded execution, selective replanning, rollback, audit.
 - **Console** — exactly two views (Run, Human action). Holds no store and no cache; every value is

@@ -1,5 +1,8 @@
 package com.schwab.shortener.service;
 
+import com.schwab.shortener.obs.Events;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import com.schwab.shortener.domain.CodeGenerator;
 import com.schwab.shortener.domain.RedirectEvent;
 import com.schwab.shortener.domain.ShortLink;
@@ -16,6 +19,9 @@ import org.springframework.transaction.annotation.Transactional;
 /** Create, resolve, revoke, and the analytics summary (FR-001–FR-014). */
 @Service
 public class LinkService {
+
+    private static final Logger LOG = LoggerFactory.getLogger(LinkService.class);
+
 
     private final ShortLinkRepository links;
     private final RedirectEventRepository events;
@@ -49,6 +55,9 @@ public class LinkService {
         ShortLink link = new ShortLink(code, validated, validator.canonicalise(validated),
                 clientId, Instant.now(), expiresAt);
         links.save(link);
+        // Code and client only. The destination is deliberately absent: a caller-supplied URL can
+        // carry a credential or token in its query string, and this line goes to stdout.
+        LOG.info("{} outcome=created code={} client={}", Events.LINK_CREATED, code, clientId);
         return new CreatedLink(code, validated, link.getCreatedAt(), link.getExpiresAt());
     }
 
@@ -94,6 +103,7 @@ public class LinkService {
             throw new ApiException(ErrorCode.FORBIDDEN, "only the creating client may revoke");
         }
         links.revoke(code, Instant.now());
+        LOG.info("{} outcome=revoked code={} client={}", Events.LINK_REVOKED, code, clientId);
     }
 
     @Transactional(readOnly = true)

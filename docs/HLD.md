@@ -107,8 +107,18 @@ Java 21, Spring Boot 3.3.5, Spring MVC, Spring Data JPA, Flyway, springdoc-opena
 allow-list and length cap **syntactically** — there is no reachability check, by requirement.
 `CodeGenerator` produces 7 characters from a 62-symbol alphabet with a bounded collision retry.
 
-Two connection pools: `redirect-pool` (16) and `analytics-pool` (4). Analytics load cannot
-exhaust the pool the redirect path depends on.
+**One connection pool: `redirect-pool` (16).** The `application.yaml` block naming an
+`analytics-pool` is not bound by any `@Configuration` — Spring creates a single `DataSource`, and
+a real startup log shows `redirect-pool` only. See §18 for the correction record.
+
+What protects the redirect path today is the *query shape*, not pool partitioning:
+`LinkService.summary()` is a `@Transactional(readOnly = true)` primary-key lookup that reads
+counters denormalised onto `short_link` and never scans `redirect_event`. There is no heavy
+analytics query to starve anything, and T098 measured peak concurrency at 2 of 16 connections.
+
+Pool separation becomes justified when **FR-014 event-history analytics** lands — that is the
+first query shape that scans events — and it is deferred until then (`tasks.md § Deferred
+Capabilities`).
 
 ### 4.2 Python orchestrator — the control plane
 
@@ -448,6 +458,16 @@ when every cheaper rung is exhausted.
 
 ## 18. Known limitations
 
+- **Correction (production-hardening, 2026-08-21): there is one connection pool, not two.**
+  Earlier revisions of this document, `README.md` and the traceability matrix stated that a
+  `redirect-pool` and an `analytics-pool` isolated analytics load from the redirect path. The
+  `analytics-pool` was never implemented — `application.yaml` declares it, but no
+  `@Configuration`, `@Bean` or `@ConfigurationProperties` binds it, and a real startup log shows
+  `redirect-pool` only. Found by implementation verification during a production-readiness
+  review, not by a failing test. The claim was corrected in all three documents rather than the
+  pool being added, because the analytics summary is a bounded primary-key lookup with no query
+  shape to isolate (§4.1). **No human approval record was altered** — the NFR-002 approver ruling
+  in `plan.md` concerns service and database independence, which remains implemented.
 - **A raw `socket.connect()` bypasses the egress guard, by design.** The guard wraps `getaddrinfo`
   and `create_connection` — the entry points every stdlib and third-party HTTP client uses — and
   cannot wrap the syscall those wrappers call. It is defense in depth for orchestrator code; the
