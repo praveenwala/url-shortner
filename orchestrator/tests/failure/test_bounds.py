@@ -6,14 +6,16 @@ budget, or invent a fallback after failing, is unbounded in the only sense that 
 """
 
 import time
+from dataclasses import FrozenInstanceError
 
 import pytest
 
+from src.api.errors import OrchestratorError
 from src.engine.bounds import (
     BoundedExecutor,
     FallbackAction,
-    OperationPolicy,
     OperationOutcome,
+    OperationPolicy,
     RetriesExhausted,
     UndeclaredFallback,
     backoff_delays,
@@ -55,20 +57,24 @@ def test_policy_is_immutable_once_declared():
     policy = FAST
     for field, value in (("timeout_seconds", 999), ("max_attempts", 99),
                          ("backoff_seconds", 60), ("fallback", FallbackAction.WAIT_FOR_HUMAN)):
-        with pytest.raises(Exception):
+        with pytest.raises(FrozenInstanceError):
             setattr(policy, field, value)
 
 
 def test_a_policy_must_declare_positive_bounds():
     for bad in ({"max_attempts": 0}, {"timeout_seconds": 0}, {"backoff_seconds": -1}):
-        with pytest.raises(Exception):
-            OperationPolicy(timeout_seconds=1, max_attempts=1, backoff_seconds=0,
-                            fallback=FallbackAction.SAFE_STOP, **bad)
+        # The bad value must *replace* the good one. Passing both duplicated the keyword
+        # and raised TypeError before __post_init__ ran, so the old `raises(Exception)`
+        # form passed without ever exercising the validation it names (found by B017).
+        kwargs = {"timeout_seconds": 1, "max_attempts": 1, "backoff_seconds": 0,
+                  "fallback": FallbackAction.SAFE_STOP, **bad}
+        with pytest.raises(OrchestratorError):
+            OperationPolicy(**kwargs)
 
 
 def test_an_executing_operation_cannot_widen_its_own_budget(wired):
     """The operation is handed the attempt number, never the policy object."""
-    executor, engine = wired
+    executor, _engine = wired
     seen: list = []
 
     def greedy(attempt: int) -> bool:
@@ -130,7 +136,7 @@ def test_max_attempts_exhausted_raises_and_stops(wired):
 
 
 def test_no_attempt_occurs_after_exhaustion(wired):
-    executor, engine = wired
+    executor, _engine = wired
     calls: list[int] = []
 
     def always_fail(attempt: int) -> bool:
@@ -167,7 +173,7 @@ def test_backoff_is_capped_rather_than_doubling_forever():
 # --- fallback ------------------------------------------------------------------
 
 def test_an_undeclared_fallback_is_rejected_before_the_operation_runs(wired):
-    executor, engine = wired
+    executor, _engine = wired
     policy = OperationPolicy(timeout_seconds=1, max_attempts=1, backoff_seconds=0,
                              fallback=FallbackAction.HANDLER, fallback_handler="not_registered")
     calls: list[int] = []

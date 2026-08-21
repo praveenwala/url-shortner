@@ -36,7 +36,7 @@ async def _error_shape(request: Request, exc: HTTPException) -> JSONResponse:
         content={"error": "invalid_request", "message": str(exc.detail)},
     )
 
-from src.api.routes import router  # noqa: E402
+from src.api.routes import router
 
 app.include_router(router)
 

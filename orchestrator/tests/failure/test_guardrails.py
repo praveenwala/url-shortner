@@ -8,6 +8,7 @@ failure mode these guard against.
 import pytest
 
 from src.engine.approvals import ApprovalService, Checkpoint, Decision
+from src.engine.decompose import TaskNode
 from src.engine.guardrails import (
     GovernanceViolation,
     Guardrails,
@@ -15,7 +16,6 @@ from src.engine.guardrails import (
     classify_governance_path,
 )
 from src.engine.identity import APPROVER_ROLE, Actor
-from src.engine.decompose import TaskNode
 from src.models.states import ExecutionMode, Surface
 
 pytestmark = [pytest.mark.failure, pytest.mark.integration]
@@ -83,7 +83,7 @@ def test_rejected_scope_request_does_not_widen_scope(guards):
     request = guards.approvals.pending("run-1")[0]
     guards.approvals.decide(request.id, actor=HUMAN, decision=Decision.REJECTED,
                             rationale="out of scope for this run")
-    with pytest.raises(Exception):
+    with pytest.raises(ScopeViolation):
         guards.widen_scope_from_approval("run-1", request.id)
     assert "FR-999" not in guards.approved_scope("run-1")
 

@@ -64,7 +64,7 @@ def _subprocess(code: str, env: dict[str, str] | None = None) -> subprocess.Comp
     child["PYTHONPATH"] = str(ORCHESTRATOR)
     return subprocess.run(
         [sys.executable, "-c", code], capture_output=True, text=True,
-        cwd=ORCHESTRATOR, env=child, timeout=120,
+        cwd=ORCHESTRATOR, env=child, timeout=120, check=False,
     )
 
 

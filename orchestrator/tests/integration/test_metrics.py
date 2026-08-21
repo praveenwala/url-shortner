@@ -11,7 +11,7 @@ import pytest
 
 from src.audit.metrics import MetricsService
 from src.engine.state import StateStore
-from src.models.states import NodeState, RunState
+from src.models.states import RunState
 from src.store.repository import AuditRepository
 from src.trace.correlation import Correlation, now
 

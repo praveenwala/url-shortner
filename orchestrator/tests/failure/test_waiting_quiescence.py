@@ -39,7 +39,7 @@ def waiting(clean_db):
 
 
 def test_no_thread_or_timer_is_started_while_waiting(waiting):
-    gate, dispatcher, engine = waiting
+    gate, dispatcher, _engine = waiting
     before = threading.active_count()
 
     for _ in range(5):
@@ -79,7 +79,7 @@ def test_the_state_never_expires_into_autonomous_execution(waiting):
 
 
 def test_only_a_recorded_answer_moves_the_run(waiting):
-    gate, dispatcher, engine = waiting
+    gate, _dispatcher, engine = waiting
     pending = ClarificationService(engine).pending("run-1")[0]
 
     assert gate.resume("run-1").state is GateState.AWAITING_CLARIFICATION

@@ -7,6 +7,7 @@ one, cannot borrow one, and cannot stretch one to cover a second action.
 import pytest
 
 from src.engine.approvals import (
+    AlreadyDecided,
     ApprovalService,
     Checkpoint,
     Decision,
@@ -102,7 +103,7 @@ def test_rejected_approval_authorises_nothing(service):
 def test_a_request_cannot_be_decided_twice(service):
     request = _request(service)
     service.decide(request.id, actor=HUMAN, decision=Decision.APPROVED, rationale="ok")
-    with pytest.raises(Exception):
+    with pytest.raises(AlreadyDecided):
         service.decide(request.id, actor=HUMAN, decision=Decision.REJECTED, rationale="changed")
 
 

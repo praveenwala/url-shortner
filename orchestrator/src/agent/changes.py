@@ -10,6 +10,7 @@ from __future__ import annotations
 import hashlib
 import os
 import tempfile
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -98,7 +99,7 @@ def revert(record: ChangeRecord, path: Path) -> None:
         path.unlink(missing_ok=True)
 
 
-def revert_all(records: list[ChangeRecord], resolve: "callable[[str], Path]") -> None:
+def revert_all(records: list[ChangeRecord], resolve: Callable[[str], Path]) -> None:
     """Reverse-chronological, so a file written twice returns to its true original."""
     for record in reversed(records):
         revert(record, resolve(record.artifact_path))

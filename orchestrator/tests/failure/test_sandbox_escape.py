@@ -125,8 +125,8 @@ def test_mutations_do_not_propagate_to_the_authoritative_repository(surface_copy
     result = _probe(
         surface_copy,
         ("sh", "-c",
-         "echo TAMPERED > /work/src/models/states.py; "
-         "rm -rf /work/tests 2>/dev/null; echo done"),
+         ("echo TAMPERED > /work/src/models/states.py; "
+          "rm -rf /work/tests 2>/dev/null; echo done")),
     )
     assert "done" in result.output
     # the copy was mutated ...

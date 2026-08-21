@@ -433,7 +433,23 @@ mvn -f shortener/pom.xml verify                            # integration + failu
 The contract layer regenerates the OpenAPI document from the running application and fails if it
 drifts from the approved contract or the committed artifact.
 
-### Python orchestrator tests
+### Python orchestrator lint and tests
+
+**Lint is a CI gate — run it, not just the tests.**
+
+```bash
+.venv/bin/python -m ruff check orchestrator     # CI runs the equivalent: ruff check orchestrator
+```
+
+Expected: `All checks passed!`
+
+> **This was a real verification gap, found by CI rather than locally.** `ruff` is declared in
+> `orchestrator[dev]`, but if the virtualenv was created without that extra installed, the command
+> fails with `No module named ruff` — and every local verification pass silently skipped the lint
+> gate that CI enforces, while the test layers all reported green. Install the dev extra (§5) and
+> confirm `ruff --version` works before treating a local run as complete. This is a
+> **verification-process** finding about how the checks were run; it does not affect the T102,
+> T103 or T104 decisions, which stand as recorded.
 
 ```bash
 .venv/bin/python -m pytest orchestrator/tests -q                                    # everything

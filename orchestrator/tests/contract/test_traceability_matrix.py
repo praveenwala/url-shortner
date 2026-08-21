@@ -40,7 +40,7 @@ DECLARED_DEFERRALS: frozenset[str] = frozenset({"FR-005", "FR-015"})
 
 
 def spec_requirements() -> list[str]:
-    return re.findall(r"^- \*\*((?:FR|NFR|SC)-\d+)\*\*", SPEC.read_text(), re.M)
+    return re.findall(r"^- \*\*((?:FR|NFR|SC)-\d+)\*\*", SPEC.read_text(), re.MULTILINE)
 
 
 MATRIX_HEADING = "## 2. Requirement coverage matrix"
@@ -68,7 +68,7 @@ def matrix_rows() -> dict[str, dict[str, str]]:
 
 
 def task_ids() -> set[str]:
-    return set(re.findall(r"^- \[[X ]\] (T\d+)", TASKS.read_text(), re.M))
+    return set(re.findall(r"^- \[[X ]\] (T\d+)", TASKS.read_text(), re.MULTILINE))
 
 
 # --- 1. every requirement is classified, exactly once ------------------------
@@ -85,7 +85,7 @@ def test_the_matrix_invents_no_requirement():
 
 
 def test_no_requirement_is_listed_twice():
-    ids = re.findall(r"^\| \*\*((?:FR|NFR|SC)-\d+)\*\* \|", matrix_section(), re.M)
+    ids = re.findall(r"^\| \*\*((?:FR|NFR|SC)-\d+)\*\* \|", matrix_section(), re.MULTILINE)
     duplicates = sorted({i for i in ids if ids.count(i) > 1})
     assert not duplicates, f"duplicated matrix rows: {duplicates}"
 

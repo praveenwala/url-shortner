@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import secrets
 import tempfile
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from enum import StrEnum
 from pathlib import Path
 
@@ -70,7 +70,7 @@ class TestRunRequest:
     repo_root: Path
     surface: Surface
     layer: TestLayer
-    limits: SandboxLimits = SandboxLimits()
+    limits: SandboxLimits = field(default_factory=SandboxLimits)
     image_override: str | None = None
 
 

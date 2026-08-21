@@ -129,17 +129,17 @@ def test_a_real_process_with_no_daemon_exits_without_running_tests(unreachable_d
     env["PYTHONPATH"] = str(ORCHESTRATOR)
     result = subprocess.run(
         [sys.executable, "-c",
-         "from pathlib import Path\n"
-         "from src.agent.testrunner import TestLayer, TestRunRequest, run_tests\n"
-         "from src.agent.errors import SandboxUnavailable\n"
-         "from src.models.states import Surface\n"
-         "try:\n"
-         f"    run_tests(TestRunRequest(repo_root=Path({str(REPO)!r}), "
-         "surface=Surface.ORCHESTRATOR, layer=TestLayer.UNIT))\n"
-         "    print('RAN')\n"
-         "except SandboxUnavailable as exc:\n"
-         "    print('SANDBOX_UNAVAILABLE')\n"],
-        capture_output=True, text=True, cwd=ORCHESTRATOR, env=env, timeout=180,
+         ("from pathlib import Path\n"
+          "from src.agent.testrunner import TestLayer, TestRunRequest, run_tests\n"
+          "from src.agent.errors import SandboxUnavailable\n"
+          "from src.models.states import Surface\n"
+          "try:\n"
+          f"    run_tests(TestRunRequest(repo_root=Path({str(REPO)!r}), "
+          "surface=Surface.ORCHESTRATOR, layer=TestLayer.UNIT))\n"
+          "    print('RAN')\n"
+          "except SandboxUnavailable:\n"
+          "    print('SANDBOX_UNAVAILABLE')\n")],
+        capture_output=True, text=True, cwd=ORCHESTRATOR, env=env, timeout=180, check=False,
     )
     assert result.returncode == 0, result.stderr
     assert "SANDBOX_UNAVAILABLE" in result.stdout

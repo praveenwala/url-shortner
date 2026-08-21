@@ -76,7 +76,7 @@ def test_questions_are_specific_rather_than_a_general_complaint():
 # --- halting -----------------------------------------------------------------
 
 def test_ambiguous_requirement_halts_and_creates_no_tasks(gate):
-    service, dispatcher, engine = gate
+    service, _dispatcher, _engine = gate
     outcome = service.submit(run_id="run-1", requirement_id="req-1",
                              text=AMBIGUOUS, submitted_by="human:lead")
 
@@ -86,14 +86,14 @@ def test_ambiguous_requirement_halts_and_creates_no_tasks(gate):
 
 
 def test_the_bounded_coding_agent_is_never_dispatched_while_unresolved(gate):
-    service, dispatcher, engine = gate
+    service, dispatcher, _engine = gate
     service.submit(run_id="run-1", requirement_id="req-1", text=AMBIGUOUS,
                    submitted_by="human:lead")
     assert dispatcher.calls == [], "an agent was dispatched against an unresolved requirement"
 
 
 def test_clarification_questions_are_persisted_against_the_requirement(gate):
-    service, dispatcher, engine = gate
+    service, _dispatcher, engine = gate
     service.submit(run_id="run-1", requirement_id="req-1", text=AMBIGUOUS,
                    submitted_by="human:lead")
 
@@ -104,14 +104,14 @@ def test_clarification_questions_are_persisted_against_the_requirement(gate):
 
 
 def test_run_is_waiting_for_human(gate):
-    service, dispatcher, engine = gate
+    service, _dispatcher, engine = gate
     service.submit(run_id="run-1", requirement_id="req-1", text=AMBIGUOUS,
                    submitted_by="human:lead")
     assert StateStore(engine).run_state("run-1") is RunState.WAITING_FOR_HUMAN
 
 
 def test_requirement_is_marked_awaiting_clarification(gate):
-    service, dispatcher, engine = gate
+    service, _dispatcher, _engine = gate
     service.submit(run_id="run-1", requirement_id="req-1", text=AMBIGUOUS,
                    submitted_by="human:lead")
     assert service.requirement_state("req-1") is ResolutionState.AWAITING_CLARIFICATION
@@ -139,7 +139,7 @@ def _answer(engine, run_id, text, actor="human:lead"):
 
 
 def test_answer_is_persisted_before_the_run_resumes(gate):
-    service, dispatcher, engine = gate
+    service, _dispatcher, engine = gate
     service.submit(run_id="run-1", requirement_id="req-1", text=AMBIGUOUS,
                    submitted_by="human:lead")
     answered = _answer(engine, "run-1", CLEAR)
@@ -154,7 +154,7 @@ def test_answer_is_persisted_before_the_run_resumes(gate):
 
 
 def test_answer_carries_actor_timestamp_requirement_and_lineage(gate):
-    service, dispatcher, engine = gate
+    service, _dispatcher, engine = gate
     service.submit(run_id="run-1", requirement_id="req-1", text=AMBIGUOUS,
                    submitted_by="human:lead")
     _answer(engine, "run-1", CLEAR, actor="human:reviewer")
@@ -171,7 +171,7 @@ def test_answer_carries_actor_timestamp_requirement_and_lineage(gate):
 
 
 def test_resume_re_interprets_using_the_clarification(gate):
-    service, dispatcher, engine = gate
+    service, _dispatcher, engine = gate
     service.submit(run_id="run-1", requirement_id="req-1", text=AMBIGUOUS,
                    submitted_by="human:lead")
     _answer(engine, "run-1", CLEAR)
@@ -247,7 +247,7 @@ def test_restart_resumes_from_persisted_state_alone(gate):
 
 
 def test_every_transition_is_audited(gate):
-    service, dispatcher, engine = gate
+    service, _dispatcher, engine = gate
     service.submit(run_id="run-1", requirement_id="req-1", text=AMBIGUOUS,
                    submitted_by="human:lead")
     _answer(engine, "run-1", CLEAR)

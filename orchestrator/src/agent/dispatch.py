@@ -8,9 +8,10 @@ the attempt cap, or the wall clock escalates to safe-stop — never a further tr
 from __future__ import annotations
 
 import time
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any
 
 from src.agent.approval_hook import ApprovalHook
 from src.agent.errors import (

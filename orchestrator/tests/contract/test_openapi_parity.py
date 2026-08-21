@@ -31,7 +31,7 @@ def normalise(path: str) -> str:
 
 
 def contract_operations() -> set[tuple[str, str]]:
-    rows = re.findall(r"^\| [^|]+ \| [`*]+([A-Z]+) (/[^`|*\s]+)", CONTRACT.read_text(), re.M)
+    rows = re.findall(r"^\| [^|]+ \| [`*]+([A-Z]+) (/[^`|*\s]+)", CONTRACT.read_text(), re.MULTILINE)
     return {(method, normalise(path)) for method, path in rows}
 
 

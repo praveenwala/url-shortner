@@ -104,9 +104,8 @@ def test_runtime_role_cannot_update_delete_or_truncate_audit(seeded):
             "DELETE FROM audit_event",
             "TRUNCATE audit_event",
         ):
-            with pytest.raises(Exception) as exc:
-                with probe.begin() as conn:
-                    conn.execute(text(statement))
+            with pytest.raises(Exception) as exc, probe.begin() as conn:
+                conn.execute(text(statement))
             assert "permission denied" in str(exc.value).lower(), statement
     finally:
         probe.dispose()

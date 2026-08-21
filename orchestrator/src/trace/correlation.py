@@ -8,7 +8,7 @@ runtime module across the language boundary (plan.md § Structure Decision).
 from __future__ import annotations
 
 import uuid
-from dataclasses import dataclass, field, asdict
+from dataclasses import asdict, dataclass, field
 from datetime import UTC, datetime
 
 TRACE_ID = "trace_id"
@@ -36,7 +36,7 @@ class Correlation:
     actor: str = "system"
     occurred_at: datetime = field(default_factory=now)
 
-    def child(self, actor: str | None = None) -> "Correlation":
+    def child(self, actor: str | None = None) -> Correlation:
         return Correlation(
             trace_id=self.trace_id,
             span_id=new_id(),

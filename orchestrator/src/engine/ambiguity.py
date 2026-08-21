@@ -160,18 +160,18 @@ def detect(text: str) -> list[AmbiguityFinding]:
 
 # --- the gate ----------------------------------------------------------------
 
-import json  # noqa: E402
-from typing import Any, Protocol  # noqa: E402
+import json
+from typing import Any, Protocol
 
-from sqlalchemy import Engine, text  # noqa: E402
+from sqlalchemy import Engine, text
 
-from src.engine.clarifications import ClarificationService  # noqa: E402
-from src.engine.decisions import DecisionStore  # noqa: E402
-from src.engine.intake import ResolutionState  # noqa: E402
-from src.engine.state import StateStore  # noqa: E402
-from src.models.states import RunState  # noqa: E402
-from src.store.repository import AuditRepository  # noqa: E402
-from src.trace.correlation import Correlation  # noqa: E402
+from src.engine.clarifications import ClarificationService
+from src.engine.decisions import DecisionStore
+from src.engine.intake import ResolutionState
+from src.engine.state import StateStore
+from src.models.states import RunState
+from src.store.repository import AuditRepository
+from src.trace.correlation import Correlation
 
 
 class GateState(StrEnum):

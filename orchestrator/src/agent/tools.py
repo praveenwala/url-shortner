@@ -11,9 +11,10 @@ code the agent itself wrote.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from collections.abc import Callable
+from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any
 
 from src.agent.allowlist import PathPolicy
 from src.agent.changes import ChangeRecord, apply_write
@@ -89,7 +90,7 @@ def tool_schemas() -> list[dict[str, Any]]:
 class ToolContext:
     repo_root: Path
     task: TaskNode
-    limits: SandboxLimits = SandboxLimits()
+    limits: SandboxLimits = field(default_factory=SandboxLimits)
     changes: list[ChangeRecord] = None  # type: ignore[assignment]
     image_override: str | None = None
     on_change: Callable[[ChangeRecord], None] | None = None

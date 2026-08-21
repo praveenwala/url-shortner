@@ -270,7 +270,7 @@ def test_metrics_distinguish_zero_activity_from_unavailable(client, clean_db):
 
 def test_metrics_reflect_recorded_activity(client, clean_db):
     from src.store.repository import AuditRepository
-    from src.trace.correlation import Correlation, now
+    from src.trace.correlation import Correlation
 
     audit = AuditRepository(clean_db)
     correlation = Correlation(run_id="run-1", actor="orchestrator")

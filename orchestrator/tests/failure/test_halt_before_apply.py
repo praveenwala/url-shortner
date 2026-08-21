@@ -42,7 +42,7 @@ def _task():
 
 
 def test_checkpoint_crossing_write_halts_before_mutation(wired):
-    store, approvals, audit, engine = wired
+    store, approvals, audit, _engine = wired
     target = REPO / "orchestrator" / "pyproject.toml"
     before = target.read_bytes()
 
@@ -68,7 +68,7 @@ def test_checkpoint_crossing_write_halts_before_mutation(wired):
 
 
 def test_rejected_approval_leaves_the_artifact_unchanged(wired):
-    store, approvals, audit, engine = wired
+    store, approvals, audit, _engine = wired
     target = REPO / "orchestrator" / "pyproject.toml"
     before = target.read_bytes()
 
@@ -101,7 +101,7 @@ def test_waiting_for_human_is_a_persisted_state_not_a_blocked_process(wired):
 
 
 def test_audit_records_the_checkpoint_and_the_state_transition(wired):
-    store, approvals, audit, engine = wired
+    store, approvals, audit, _engine = wired
     dispatcher = Dispatcher(
         repo_root=REPO, task=BoundedTask(_task(), ALL_APPROVALS),
         run_id="run-1", state_store=store, approvals=approvals, audit=audit,
@@ -115,7 +115,7 @@ def test_audit_records_the_checkpoint_and_the_state_transition(wired):
 
 
 def test_tool_violation_is_audited_and_does_not_park_the_run(wired):
-    store, approvals, audit, engine = wired
+    store, approvals, audit, _engine = wired
     task = TaskNode(
         id="t2", description="d", requirement_ref="FR-041",
         execution_mode=ExecutionMode.AGENT_AUTHORED, surface=Surface.ORCHESTRATOR,

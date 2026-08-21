@@ -14,18 +14,19 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from src.store.repository import apply_migrations, make_engine  # noqa: E402
+from src.store.repository import apply_migrations, make_engine
 
 try:  # the package moved; support both layouts
     from testcontainers.community.postgres import PostgresContainer
 
     _TESTCONTAINERS = True
-except Exception:  # pragma: no cover - import guard
+except Exception:  # noqa: BLE001 - import guard: any import error means the
+    # optional package layout is unavailable; pragma: no cover
     try:
         from testcontainers.postgres import PostgresContainer
 
         _TESTCONTAINERS = True
-    except Exception:
+    except Exception:  # noqa: BLE001 - same import guard, second layout
         _TESTCONTAINERS = False
 
 
