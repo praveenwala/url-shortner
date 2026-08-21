@@ -7,7 +7,10 @@ while stopped and resumable without repeating completed work.
 from __future__ import annotations
 
 import json
+from collections.abc import Mapping
 from dataclasses import dataclass
+from types import MappingProxyType
+from typing import ClassVar
 
 # Aliased so `text` remains usable as a domain word in signatures below.
 from sqlalchemy import Engine
@@ -24,6 +27,7 @@ from src.models.states import (
     Surface,
     check_run_transition,
 )
+from src.obs import logging as olog
 from src.trace.correlation import now
 
 
@@ -85,6 +89,16 @@ class StateStore:
             raise OrchestratorError(f"unknown run {run_id!r}", ErrorCode.NOT_FOUND)
         return RunState(row[0])
 
+    #: Run states that warrant an operational log line, and the event name each maps to.
+    #: Immutable so no caller can reshape the logging vocabulary at runtime.
+    _RUN_EVENT: ClassVar[Mapping[RunState, str]] = MappingProxyType({
+        RunState.EXECUTING: "run_started",
+        RunState.COMPLETED: "run_completed",
+        RunState.FAILED: "run_failed",
+        RunState.SAFE_STOPPED: "safe_stop",
+        RunState.WAITING_FOR_HUMAN: "waiting_for_human",
+    })
+
     def transition_run(self, run_id: str, target: RunState, waiting_on: str | None = None) -> None:
         current = self.run_state(run_id)
         check_run_transition(current, target)
@@ -98,7 +112,16 @@ class StateStore:
                 {"s": str(target), "w": waiting_on, "at": now(), "id": run_id},
             )
 
+        # Emitted only after the transition is persisted, so an operational log line can never
+        # claim a state the store rejected. This is a diagnostic record; the audit trail is
+        # written separately and is unaffected.
+        event = self._RUN_EVENT.get(target)
+        if event:
+            olog.log(event, run_id=run_id, outcome=str(target),
+                     **({"waiting_on": waiting_on} if waiting_on else {}))
+
     # -- nodes ---------------------------------------------------------------
+
     def persist_nodes(self, run_id: str, nodes: list[TaskNode]) -> None:
         with self._engine.begin() as conn:
             for node in nodes:

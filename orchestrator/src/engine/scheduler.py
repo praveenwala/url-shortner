@@ -13,6 +13,7 @@ without touching this module.
 from __future__ import annotations
 
 import threading
+import time
 from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor, wait
 from dataclasses import dataclass, field
@@ -21,6 +22,7 @@ from src.engine.decompose import TaskNode
 from src.graph.builder import TaskGraph
 from src.graph.sync import SyncPolicy, SyncResult, evaluate_sync
 from src.models.states import NodeState, check_node_transition
+from src.obs import logging as olog
 
 TaskExecutor = Callable[[TaskNode], bool]
 """Returns True on success. Raising is treated as failure."""
@@ -45,10 +47,14 @@ class Scheduler:
         max_workers: int = 8,
         sync_policy: SyncPolicy = SyncPolicy.ALL_MUST_SUCCEED,
         on_transition: Callable[[TaskNode, NodeState, NodeState], None] | None = None,
+        run_id: str | None = None,
     ) -> None:
         self._graph = graph
         self._executor = executor
         self._max_workers = max_workers
+        #: Correlates operational log lines with the run. Optional so every existing caller and
+        #: test keeps working unchanged; absent simply means the field is omitted from the log.
+        self.run_id = run_id
         self._sync_policy = sync_policy
         self._on_transition = on_transition
         self._lock = threading.Lock()
@@ -70,6 +76,9 @@ class Scheduler:
             self._in_flight += 1
             self.trace.max_concurrent = max(self.trace.max_concurrent, self._in_flight)
             self.trace.started.append(node.id)
+        started = time.monotonic()
+        olog.log("node_started", run_id=self.run_id, node_id=node.id,
+                 attempt=node.attempt_count + 1)
         try:
             node.attempt_count += 1
             ok = bool(self._executor(node))
@@ -80,6 +89,12 @@ class Scheduler:
             with self._lock:
                 self._in_flight -= 1
                 self.trace.finished.append(node.id)
+        olog.log(
+            "node_completed" if ok else "node_failed",
+            run_id=self.run_id, node_id=node.id, attempt=node.attempt_count,
+            duration_ms=round((time.monotonic() - started) * 1000, 2),
+            outcome="succeeded" if ok else "failed",
+        )
         self._transition(node, NodeState.SUCCEEDED if ok else NodeState.FAILED)
 
     def _settle_sync_nodes(self) -> bool:

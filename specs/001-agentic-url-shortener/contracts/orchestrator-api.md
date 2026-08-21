@@ -25,7 +25,8 @@ is what keeps demonstration runs verifiable headlessly.
 | Traceability | `GET /v1/trace?requirement=…` / `?change=…` | Both directions of the trace | FR-034 |
 | Metrics | *(no separate route — served inside `GET /v1/runs/{id}`)* | Success rate, retry frequency, rollback frequency, MTTR, end-to-end latency — per run and across runs | FR-037, FR-047 |
 | List runs | `GET /v1/runs` | Runs with state and requirement summary | FR-045 |
-| Health | `GET /health` | Liveness; carries no run data | NFR-007 |
+| Health | `GET /health` | **Liveness only.** Carries no run data and touches no dependency; must stay 200 while PostgreSQL is down, so a dependency outage cannot cause a restart loop | NFR-007 |
+| Readiness | `GET /ready` | **Readiness.** 200 when the database answers within a bounded timeout; **503** with `{status, service, dependency, error_type}` when it does not. Names the failing dependency and its exception type — never the DSN | NFR-007, NFR-003 |
 | Console assets | static build | React + TypeScript SPA consuming exactly the routes above | FR-045 |
 
 ## Reconciliation with the generated OpenAPI (T030, 2026-08-20)
@@ -44,6 +45,7 @@ than changed silently.
 | Approval and clarification routes carry `{request_id}` in the path | **contract drift** | The 2f implementation binds a decision to one request in the path, which is what makes "an approval covers exactly one action" enforceable at the route. Reviewed and accepted at 2f; the contract is corrected above |
 | `GET /v1/trace?requirement=…` declared; implemented as `GET /v1/runs/{id}/trace` | **implementation bug** | **Fixed.** The route now lives at `/v1/trace` and accepts `requirement`, `change`, or `run`, as the approved contract says. Nothing called the old path |
 | Generated document described no error envelope — only FastAPI's 422 | **implementation bug** | **Fixed.** `ApiErrorBody` is declared as the response model for 400/401/403/404/409 on every fallible route, so the published document states the stable `{error, message}` envelope a client branches on |
+| `GET /ready` added (production-hardening, 2026-08-21) | **additive compatible** | Declared above. A new read-only endpoint; no existing shape, status code or field changed. Added because `/health` alone reported 200 while every data endpoint failed — liveness was being read as readiness |
 | `GET /v1/runs` and `GET /health` implemented, undeclared | **additive compatible** | Documented above. Neither changes an existing shape |
 | Path parameter named `{run_id}` where the contract writes `{id}` | **cosmetic** | Not changed. The parity check normalises parameter names, comparing structure rather than spelling |
 

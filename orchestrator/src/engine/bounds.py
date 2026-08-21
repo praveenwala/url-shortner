@@ -35,6 +35,7 @@ from sqlalchemy import Engine
 from src.api.errors import ErrorCode, OrchestratorError
 from src.engine.state import StateStore
 from src.models.states import RunState
+from src.obs import logging as olog
 from src.store.repository import AuditRepository
 from src.trace.correlation import Correlation
 
@@ -194,6 +195,8 @@ class BoundedExecutor:
         return result, None
 
     def _fallback(self, operation_id: str, policy: OperationPolicy, attempts: int) -> None:
+        olog.warn("fallback_selected", node_id=operation_id, attempt=attempts,
+                  outcome=str(policy.fallback))
         self._emit("FALLBACK_EXECUTED", operation_id,
                    {"fallback": str(policy.fallback), "attempts": attempts})
 
