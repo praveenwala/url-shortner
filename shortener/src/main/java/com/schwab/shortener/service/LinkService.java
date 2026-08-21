@@ -39,8 +39,14 @@ public class LinkService {
                 candidate -> reserved.isReserved(candidate) || links.existsById(candidate));
     }
 
+    /**
+     * @param dbLookupNanos time spent in the collision lookup only. The INSERT is not included:
+     *     under JPA the write is flushed at commit, which the transaction proxy performs after
+     *     this method returns, so it cannot honestly be measured from in here. The controller's
+     *     creation_duration_ms spans the proxied call and therefore does include it.
+     */
     public record CreatedLink(String code, String destination, Instant createdAt,
-                              Instant expiresAt) {}
+                              Instant expiresAt, long dbLookupNanos) {}
 
     public record Summary(String code, long totalRedirects, Instant firstRedirectAt,
                           Instant lastRedirectAt) {}
@@ -51,14 +57,23 @@ public class LinkService {
         if (expiresAt != null && !expiresAt.isAfter(Instant.now())) {
             throw new ApiException(ErrorCode.MALFORMED_URL, "expiry must be in the future");
         }
+        // The generator's collision predicate issues a SELECT per candidate, so this is real
+        // database time and the only part of it measurable here.
+        long lookupStart = System.nanoTime();
         String code = generator.generate();
+        long dbLookupNanos = System.nanoTime() - lookupStart;
+
         ShortLink link = new ShortLink(code, validated, validator.canonicalise(validated),
                 clientId, Instant.now(), expiresAt);
+        // save() enqueues into the persistence context; the INSERT happens at commit. Timing it
+        // here would measure a hashmap put and report it as persistence, so it is not timed.
         links.save(link);
-        // Code and client only. The destination is deliberately absent: a caller-supplied URL can
-        // carry a credential or token in its query string, and this line goes to stdout.
-        LOG.info("{} outcome=created code={} client={}", Events.LINK_CREATED, code, clientId);
-        return new CreatedLink(code, validated, link.getCreatedAt(), link.getExpiresAt());
+
+        // No success event here. This method runs *inside* the transaction: emitting
+        // "created" before the proxy commits could log a creation that then rolls back. The
+        // controller owns the success event, after the proxied call returns.
+        return new CreatedLink(code, validated, link.getCreatedAt(), link.getExpiresAt(),
+                dbLookupNanos);
     }
 
     /**
