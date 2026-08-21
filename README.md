@@ -294,6 +294,131 @@ curl -s -X POST -H "X-Client-Id: demo-client" http://localhost:8080/v1/links/an9
 
 Replace `an91nwy` with the code returned by your own create call.
 
+### Debug a request with `X-Correlation-Id`
+
+Every shortener request carries a correlation ID. It is the handle for following one request
+through the logs — which matters most when a caller reports a failure you cannot reproduce.
+
+**Where it comes from.** Supply `X-Correlation-Id` and the service reuses your value. Omit it, or
+send one that fails validation, and the service generates a UUID instead. A value is accepted only
+if it matches `[A-Za-z0-9_.:-]{8,64}` — 8 to 64 characters, letters, digits, `_ . : -`. Anything
+else is *replaced rather than rejected*: the value is echoed in a response header and written into
+every log line for the request, so an unvalidated one would be a log-injection and
+response-splitting vector, and a malformed header is not worth failing a redirect over.
+
+**Where it goes.** Into SLF4J's MDC, so the JSON log layout promotes it to a top-level
+`correlation_id` field on every line the request produces — and back to you in the
+`X-Correlation-Id` response header, on success and on failure alike. MDC is cleared in a `finally`
+block once the request completes: servlet threads are pooled, and a leaked entry would attribute
+one caller's ID to the next caller's logs.
+
+#### Send one
+
+```bash
+curl -i -X POST http://localhost:8080/v1/links \
+  -H "Content-Type: application/json" \
+  -H "X-Client-Id: demo-client" \
+  -H "X-Correlation-Id: debug-create-001" \
+  -d '{"destination":"https://www.google.com"}'
+```
+
+`-i` prints the response headers, where the same value comes back:
+
+```
+HTTP/1.1 201
+X-Correlation-Id: debug-create-001
+```
+
+#### Find the logs
+
+**Running Spring Boot directly** — logs go to the terminal running the service.
+
+**Running in Docker:**
+
+```bash
+# every line for one request
+docker logs <shortener-container> 2>&1 | grep "debug-create-001"
+
+# follow live
+docker logs -f <shortener-container>
+```
+
+Logs are JSON on stdout, so `grep` is enough — no log platform required. Pipe through `jq` if you
+want them formatted.
+
+#### What you should see
+
+Two events for a successful creation. This is real output, lightly wrapped:
+
+```json
+{
+  "timestamp": "2026-08-21T17:14:32.401Z",
+  "level": "INFO",
+  "service": "shortener",
+  "logger": "com.schwab.shortener.web.LinkController",
+  "message": "short_link_created request_received_at=2026-08-21T17:14:32.257097Z creation_started_at=2026-08-21T17:14:32.294033Z created_at=2026-08-21T17:14:32.359715Z creation_duration_ms=12.7 db_lookup_duration_ms=2.1 short_code=Ab3x92Q destination_host=example.com destination_hash=d52597afce4feaef... outcome=success",
+  "correlation_id": "debug-create-001",
+  "request_received_at": "2026-08-21T17:14:32.257097Z"
+}
+```
+
+```json
+{
+  "timestamp": "2026-08-21T17:14:32.415Z",
+  "level": "INFO",
+  "service": "shortener",
+  "logger": "com.schwab.shortener.web.CorrelationFilter",
+  "message": "http_request_completed method=POST path=/v1/links status=201 request_duration_ms=15.4 outcome=success",
+  "correlation_id": "debug-create-001"
+}
+```
+
+> **Note on the shape.** `correlation_id` and `request_received_at` are promoted to top-level JSON
+> fields, because they travel in MDC. The event name and its measurements are `key=value` pairs
+> *inside* the `message` string. So `grep "debug-create-001"` finds every line for a request, and
+> `grep "creation_duration_ms="` finds the measurement — but `jq '.creation_duration_ms'` will not,
+> because it is not a discrete field. Promoting the rest to top level would mean a structured
+> logging encoder; that is deliberate follow-up, not an accident.
+
+On failure, `short_link_creation_failed` replaces the first event, carrying `request_received_at`,
+`creation_started_at`, `duration_ms`, `error_type` and `outcome=failed`. A failed creation never
+produces a success event.
+
+#### Reading the timing fields
+
+| Field | On | Means |
+|---|---|---|
+| `request_received_at` | both | UTC arrival, set by the filter |
+| `creation_started_at` | creation events | UTC, immediately before the service call |
+| `created_at` | `short_link_created` | UTC, when the link was created |
+| `creation_duration_ms` | `short_link_created` | The **successful transactional service invocation through commit completion** — the `INSERT` is inside this |
+| `db_lookup_duration_ms` | `short_link_created` | **Collision-check database lookup time only.** It does **not** represent total database or commit time |
+| `duration_ms` | `short_link_creation_failed` | Time spent before the failure |
+| `request_duration_ms` | `http_request_completed` | **Total HTTP request duration** — always at least `creation_duration_ms`, which it brackets |
+
+All durations come from `System.nanoTime()`; the timestamps are UTC `Instant`s and are never
+subtracted to derive a duration.
+
+Because the success event is emitted only *after* the `@Transactional` service call returns, seeing
+`short_link_created` means the row was committed — not merely that creation was attempted.
+
+#### Troubleshooting a reported problem
+
+If a caller reports a slow or failed request, ask them for the `X-Correlation-Id` from their
+response, then search the logs for that value. It groups every structured event for that one
+request — arrival, creation or failure, and completion — so you can see where the time went or
+where it stopped, without reproducing anything.
+
+#### What is deliberately absent
+
+#### Aggregates
+
+Per-request logs answer "what happened to this one request". For "how is the system behaving",
+`shortener.link.creation.duration` (timer) and `shortener.link.creation.total` (counter) are
+recorded through Micrometer, tagged only with `outcome` and `reason`. Tagging them with a
+correlation ID or short code would create an unbounded metric series per value. The meters live in
+the in-memory registry; no metrics endpoint is exposed yet (§20).
+
 ## 8. Run the orchestrator
 
 ```bash

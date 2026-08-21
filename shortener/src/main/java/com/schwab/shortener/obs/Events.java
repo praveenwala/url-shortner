@@ -11,6 +11,9 @@ public final class Events {
     public static final String APPLICATION_STARTED = "application_started";
     public static final String APPLICATION_STOPPING = "application_stopping";
     public static final String LINK_CREATED = "link_created";
+    public static final String SHORT_LINK_CREATED = "short_link_created";
+    public static final String SHORT_LINK_CREATION_FAILED = "short_link_creation_failed";
+    public static final String HTTP_REQUEST_COMPLETED = "http_request_completed";
     public static final String LINK_CREATE_REJECTED = "link_create_rejected";
     public static final String LINK_REVOKED = "link_revoked";
     public static final String REDIRECT_FAILED = "redirect_failed";
