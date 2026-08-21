@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Structured operational logging.
+
+  JSON to stdout only: a container runtime collects stdout, and that is the whole transport. No
+  file appender, no network sink, no vendor agent.
+
+  These are operational logs. The immutable audit trail lives in the orchestrator's audit_event
+  table and is written by a different service through a different path; neither replaces the other.
+-->
+<configuration>
+  <appender name="JSON" class="ch.qos.logback.core.ConsoleAppender">
+    <encoder class="ch.qos.logback.core.encoder.LayoutWrappingEncoder">
+      <layout class="com.schwab.shortener.obs.JsonLogLayout"/>
+    </encoder>
+  </appender>
+
+  <root level="INFO">
+    <appender-ref ref="JSON"/>
+  </root>
+
+  <!-- Framework chatter that carries no operational signal. -->
+  <logger name="org.springframework.web.servlet.mvc.method.annotation.ExceptionHandlerExceptionResolver" level="WARN"/>
+  <logger name="org.hibernate.orm.deprecation" level="ERROR"/>
+</configuration>

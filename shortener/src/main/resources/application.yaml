@@ -37,3 +37,27 @@ management:
     web:
       exposure:
         include: health,info
+  endpoint:
+    health:
+      # Liveness and readiness answer different questions and must not be conflated. Liveness
+      # says "this process is alive" — a database outage must NOT fail it, or the orchestrator
+      # restarts a healthy process in a loop that cannot help. Readiness says "this instance can
+      # serve traffic" and therefore does include the database.
+      probes:
+        enabled: true
+      group:
+        liveness:
+          include: livenessState
+        readiness:
+          include: readinessState,db
+  health:
+    db:
+      enabled: true
+
+spring.datasource.hikari:
+  # Bounded so a probe fails fast instead of hanging. Before this, /actuator/health blocked until
+  # the default 30s connection timeout when PostgreSQL was unreachable — long enough to trip probe
+  # deadlines and cause exactly the restart loop the liveness/readiness split exists to prevent.
+  connection-timeout: 3000
+  validation-timeout: 2000
+  initialization-fail-timeout: -1

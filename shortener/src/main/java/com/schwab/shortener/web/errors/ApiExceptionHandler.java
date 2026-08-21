@@ -1,6 +1,9 @@
 package com.schwab.shortener.web.errors;
 
 import com.schwab.shortener.domain.CodeGenerator.CollisionExhausted;
+import com.schwab.shortener.obs.Events;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.dao.DataAccessException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -12,8 +15,13 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 @RestControllerAdvice
 public class ApiExceptionHandler {
 
+    private static final Logger LOG = LoggerFactory.getLogger(ApiExceptionHandler.class);
+
     @ExceptionHandler(UnauthenticatedException.class)
     public ResponseEntity<ApiError> handleUnauthenticated(UnauthenticatedException exception) {
+        // Identifier only. The message may name a path; it must never carry a header or a token.
+        LOG.warn("{} outcome=unauthenticated error={}", Events.AUTHORIZATION_DENIED,
+                exception.code().id());
         return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
                 .body(ApiError.of(exception.code(), exception.getMessage()));
     }
@@ -27,6 +35,10 @@ public class ApiExceptionHandler {
      */
     @ExceptionHandler(DataAccessException.class)
     public ResponseEntity<ApiError> handleStorageFailure(DataAccessException exception) {
+        // Exception *type* only: a DataAccessException message can contain the JDBC URL, and a
+        // JDBC URL can contain a password.
+        LOG.error("{} outcome=service_unavailable error_type={}", Events.DATABASE_ERROR,
+                exception.getClass().getSimpleName());
         return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
                 .body(ApiError.of(ErrorCode.REDIRECT_NOT_RECORDED,
                         "the redirect could not be durably recorded, so it was not served"));
@@ -34,6 +46,11 @@ public class ApiExceptionHandler {
 
     @ExceptionHandler(ApiException.class)
     public ResponseEntity<ApiError> handle(ApiException exception) {
+        // DEBUG, not INFO: an unknown or expired code is an ordinary client outcome and would
+        // flood the log at higher volume. The identifier is enough to diagnose a pattern.
+        if (LOG.isDebugEnabled()) {
+            LOG.debug("{} outcome=refused error={}", Events.REDIRECT_FAILED, exception.code().id());
+        }
         return ResponseEntity.status(statusFor(exception.code()))
                 .body(ApiError.of(exception.code(), exception.getMessage()));
     }
