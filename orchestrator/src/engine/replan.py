@@ -15,7 +15,7 @@ from __future__ import annotations
 
 import json
 import uuid
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from enum import StrEnum
 from typing import Any
 
@@ -26,11 +26,11 @@ from sqlalchemy import text as sql_text
 
 from src.api.errors import ErrorCode, OrchestratorError
 from src.engine.approvals import ApprovalService, Checkpoint
-from src.engine.decompose import TaskNode
 from src.engine.decisions import DecisionStore
+from src.engine.decompose import TaskNode
 from src.engine.state import StateStore
 from src.graph.builder import build_graph
-from src.models.states import ExecutionMode, NodeState, RunState, Surface
+from src.models.states import RunState
 from src.store.repository import AuditRepository
 from src.trace.correlation import Correlation, now
 

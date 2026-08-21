@@ -2,6 +2,7 @@
 
 import pytest
 from sqlalchemy import text
+from sqlalchemy.exc import DatabaseError
 
 from src.models.states import (
     TERMINAL_NODE_STATES,
@@ -60,16 +61,15 @@ def test_requirement_ref_cannot_be_blank(clean_db):
                 " retry_ceiling, started_at) VALUES ('run1','r1','PLANNING',3600,3,now())"
             )
         )
-    with pytest.raises(Exception):
-        with clean_db.begin() as conn:
-            conn.execute(
-                text(
-                    "INSERT INTO task_node (id, run_id, description, requirement_ref,"
-                    " execution_mode, surface, state, timeout_seconds, max_attempts,"
-                    " backoff_seconds) VALUES ('n1','run1','d','   ','agent_authored',"
-                    "'orchestrator','PENDING',60,3,2)"
-                )
+    with pytest.raises(DatabaseError), clean_db.begin() as conn:
+        conn.execute(
+            text(
+                "INSERT INTO task_node (id, run_id, description, requirement_ref,"
+                " execution_mode, surface, state, timeout_seconds, max_attempts,"
+                " backoff_seconds) VALUES ('n1','run1','d','   ','agent_authored',"
+                "'orchestrator','PENDING',60,3,2)"
             )
+        )
 
 
 def test_audit_repository_exposes_no_mutation_path():

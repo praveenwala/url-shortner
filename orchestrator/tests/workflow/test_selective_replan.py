@@ -62,7 +62,7 @@ def run(clean_db):
 # --- 1. upstream change intake ----------------------------------------------
 
 def test_change_request_is_persisted_and_linked_to_the_prior_run(run):
-    service, engine = run
+    service, _engine = run
     change = service.submit_change(
         run_id="run-1", prior_requirement_id="req-1", text=CHANGE,
         reason="measured p95 regression on hot links", submitted_by="human:lead",
@@ -78,7 +78,7 @@ def test_change_request_is_persisted_and_linked_to_the_prior_run(run):
 # --- 2. impact analysis ------------------------------------------------------
 
 def test_one_change_invalidates_only_its_dependency_closure(run):
-    service, engine = run
+    service, _engine = run
     change = service.submit_change(run_id="run-1", prior_requirement_id="req-1", text=CHANGE,
                                    reason="latency", submitted_by="human:lead")
     impact = service.analyse_impact(change.id, affected_nodes=["redirect"])
@@ -127,7 +127,7 @@ def test_the_whole_dag_is_not_rebuilt(run):
 # --- 3. selective replanning -------------------------------------------------
 
 def test_replacements_are_created_only_for_stale_work(run):
-    service, engine = run
+    service, _engine = run
     change = service.submit_change(run_id="run-1", prior_requirement_id="req-1", text=CHANGE,
                                    reason="latency", submitted_by="human:lead")
     service.analyse_impact(change.id, affected_nodes=["redirect"], apply=True)
@@ -169,7 +169,7 @@ def test_execution_mode_is_recalculated_but_never_silently_escalated(run):
 
 
 def test_a_replan_that_would_introduce_a_cycle_is_rejected(run):
-    service, engine = run
+    service, _engine = run
     change = service.submit_change(run_id="run-1", prior_requirement_id="req-1", text=CHANGE,
                                    reason="latency", submitted_by="human:lead")
     service.analyse_impact(change.id, affected_nodes=["redirect"], apply=True)
@@ -199,7 +199,7 @@ def test_repeated_replanning_does_not_duplicate_unaffected_work(run):
 # --- 4/5. architecture checkpoint and the decision ladder --------------------
 
 def test_default_choice_is_the_cheapest_rung_not_redis(run):
-    service, engine = run
+    service, _engine = run
     change = service.submit_change(run_id="run-1", prior_requirement_id="req-1", text=CHANGE,
                                    reason="latency", submitted_by="human:lead")
     service.analyse_impact(change.id, affected_nodes=["redirect"], apply=True)
@@ -210,7 +210,7 @@ def test_default_choice_is_the_cheapest_rung_not_redis(run):
 
 
 def test_counter_contention_selects_a_bounded_change_not_a_new_component(run):
-    service, engine = run
+    service, _engine = run
     change = service.submit_change(run_id="run-1", prior_requirement_id="req-1", text=CHANGE,
                                    reason="latency", submitted_by="human:lead")
     service.analyse_impact(change.id, affected_nodes=["redirect"], apply=True)
@@ -225,7 +225,7 @@ def test_counter_contention_selects_a_bounded_change_not_a_new_component(run):
 
 
 def test_redis_is_only_reachable_when_every_cheaper_rung_is_exhausted(run):
-    service, engine = run
+    service, _engine = run
     change = service.submit_change(run_id="run-1", prior_requirement_id="req-1", text=CHANGE,
                                    reason="latency", submitted_by="human:lead")
     service.analyse_impact(change.id, affected_nodes=["redirect"], apply=True)

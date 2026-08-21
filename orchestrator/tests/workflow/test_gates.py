@@ -2,6 +2,7 @@
 
 import pytest
 
+from src.api.errors import OrchestratorError
 from src.engine.gates import Gate, GateLedger, StageBlocked, enter_stage, exit_stage
 from src.models.states import GateKind, GateOutcome
 
@@ -40,9 +41,9 @@ def test_passing_evaluations_are_recorded_too():
 
 def test_gate_kind_is_enforced():
     ledger = GateLedger()
-    with pytest.raises(Exception):
+    with pytest.raises(OrchestratorError):
         enter_stage(_gate(GateKind.EXIT, True), {}, ledger)
-    with pytest.raises(Exception):
+    with pytest.raises(OrchestratorError):
         exit_stage(_gate(GateKind.ENTRY, True), {}, ledger)
 
 

@@ -46,7 +46,7 @@ def test_governance_files_cannot_be_written_and_remain_unchanged(path):
     target = REPO / path
     before = target.read_bytes() if target.exists() else None
     ctx = _ctx(("orchestrator/src/agent/probe.py",))
-    with pytest.raises(Exception):
+    with pytest.raises(ToolViolation):
         handle_write_file(ctx, path, "tampered")
     if before is not None:
         assert target.read_bytes() == before

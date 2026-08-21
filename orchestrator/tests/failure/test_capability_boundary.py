@@ -9,7 +9,12 @@ from src.agent.allowlist import PathPolicy
 from src.agent.client import FORBIDDEN_SERVER_TOOLS, AgentModelConfig, build_request
 from src.agent.errors import CheckpointCrossing, ToolViolation
 from src.agent.testrunner import TEST_COMMANDS, TestLayer
-from src.agent.tools import TOOL_NAMES, ToolContext, handle_read_file, handle_write_file, tool_schemas
+from src.agent.tools import (
+    TOOL_NAMES,
+    ToolContext,
+    handle_write_file,
+    tool_schemas,
+)
 from src.engine.decompose import TaskNode
 from src.models.states import ExecutionMode, Surface
 

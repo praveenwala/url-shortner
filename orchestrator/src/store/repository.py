@@ -11,9 +11,10 @@ from __future__ import annotations
 
 import json
 import re
+from collections.abc import Iterable
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Iterable
+from typing import Any
 
 from sqlalchemy import Engine, create_engine, text
 
@@ -105,7 +106,7 @@ _SECRET_HINTS = ("password", "secret", "api_key", "apikey", "token", "credential
 #: `dispatch._audit` records `str(exc)`, and an exception message is exactly
 #: where a connection string or an auth header ends up. Checking key names alone
 #: cannot see any of that, because the key is simply `detail`.
-_SECRET_VALUE_PATTERNS: tuple[tuple[str, "re.Pattern[str]"], ...] = (
+_SECRET_VALUE_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
     ("credentials embedded in a URL", re.compile(r"://[^/\s:@]+:[^/\s@]+@")),
     ("an API key", re.compile(r"\bsk-[A-Za-z0-9_\-]{16,}")),
     ("an authorization header", re.compile(r"(?i)\b(?:bearer|basic)\s+[A-Za-z0-9._\-+/=]{16,}")),

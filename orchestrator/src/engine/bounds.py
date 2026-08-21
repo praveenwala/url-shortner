@@ -23,10 +23,12 @@ rewriting working, tested code to no benefit.
 from __future__ import annotations
 
 import time
-from concurrent.futures import ThreadPoolExecutor, TimeoutError as FutureTimeout
+from collections.abc import Callable
+from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import TimeoutError as FutureTimeout
 from dataclasses import dataclass
 from enum import StrEnum
-from typing import Any, Callable
+from typing import Any
 
 from sqlalchemy import Engine
 
@@ -121,12 +123,12 @@ class BoundedExecutor:
             policy: OperationPolicy) -> OperationOutcome:
         # Declared before dispatch, verified before anything executes: an unknown
         # handler is a policy error, not a runtime surprise discovered after failure.
-        if policy.fallback is FallbackAction.HANDLER:
-            if policy.fallback_handler not in self._fallbacks:
-                raise UndeclaredFallback(
-                    f"fallback handler {policy.fallback_handler!r} is not declared; "
-                    f"a fallback cannot be invented after a failure"
-                )
+        if (policy.fallback is FallbackAction.HANDLER
+                and policy.fallback_handler not in self._fallbacks):
+            raise UndeclaredFallback(
+                f"fallback handler {policy.fallback_handler!r} is not declared; "
+                f"a fallback cannot be invented after a failure"
+            )
 
         already_spent = self._state.attempts_spent(operation_id)
         delays = backoff_delays(policy)
@@ -183,7 +185,9 @@ class BoundedExecutor:
             # preempt it. The *wait* is bounded; killing the work is the sandbox's job.
             pool.shutdown(wait=False, cancel_futures=True)
             return None, "OPERATION_TIMED_OUT"
-        except Exception:
+        except Exception:  # noqa: BLE001 - a bounded operation must absorb ANY failure the
+            # callable raises; narrowing this would let an unanticipated exception escape the
+            # bound and bypass the declared fallback (Principle VII, FR-030/FR-031).
             pool.shutdown(wait=False, cancel_futures=True)
             return None, "OPERATION_FAILED"
         pool.shutdown(wait=False)

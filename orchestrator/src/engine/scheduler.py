@@ -73,7 +73,8 @@ class Scheduler:
         try:
             node.attempt_count += 1
             ok = bool(self._executor(node))
-        except Exception:
+        except Exception:  # noqa: BLE001 - any executor failure must mark the node FAILED;
+            # letting an unexpected exception propagate would abort the whole scheduler run.
             ok = False
         finally:
             with self._lock:

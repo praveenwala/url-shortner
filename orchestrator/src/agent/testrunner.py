@@ -9,12 +9,12 @@ from __future__ import annotations
 
 import secrets
 import tempfile
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from enum import StrEnum
 from pathlib import Path
 
 from src.agent import sandbox
-from src.agent.errors import SandboxError, ToolViolation
+from src.agent.errors import ToolViolation
 from src.agent.sandbox import SandboxLimits, SandboxResult
 from src.models.states import Surface
 
@@ -70,7 +70,7 @@ class TestRunRequest:
     repo_root: Path
     surface: Surface
     layer: TestLayer
-    limits: SandboxLimits = SandboxLimits()
+    limits: SandboxLimits = field(default_factory=SandboxLimits)
     image_override: str | None = None
 
 
@@ -116,9 +116,12 @@ def _run_with_database(
     pg = None
     try:
         pg = sandbox.start_postgres_dependency(network, password)
-        if not sandbox.wait_for_postgres(pg):
-            raise SandboxError("disposable postgres did not become ready")
-        dsn = f"postgresql+psycopg://postgres:{password}@{pg}:5432/agent_test"
+        # Query-readiness, not process-readiness: raises SandboxError if the target database
+        # never answers. Integration work must not start against a server that is still
+        # initialising.
+        sandbox.wait_for_postgres(pg)
+        dsn = (f"postgresql+psycopg://{sandbox.POSTGRES_DEPENDENCY_USER}:{password}"
+               f"@{pg}:5432/{sandbox.POSTGRES_DEPENDENCY_DB}")
         return sandbox.run_in_sandbox(
             image=image, argv=argv, workdir_host=copy, limits=limits,
             network=network, env={"ORCHESTRATOR_TEST_DSN": dsn},

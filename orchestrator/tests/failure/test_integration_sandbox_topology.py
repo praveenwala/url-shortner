@@ -48,7 +48,10 @@ def topology(tmp_path_factory):
     pg = None
     try:
         pg = sandbox.start_postgres_dependency(network, password, image=PROBE_IMAGE)
-        assert sandbox.wait_for_postgres(pg), "the disposable database never became ready"
+        # The shared runtime readiness gate — deliberately the same code path
+        # `testrunner._run_with_database` uses, so the two cannot drift. It raises SandboxError
+        # if the target database never answers a real query.
+        sandbox.wait_for_postgres(pg)
         yield {"network": network, "pg": pg, "password": password, "workdir": workdir}
     finally:
         if pg:

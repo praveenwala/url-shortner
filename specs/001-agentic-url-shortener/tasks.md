@@ -108,7 +108,19 @@ A task is `[HUMAN]` when it establishes or verifies a boundary that an agent mus
 - [X] T019 [AGENT] [P] [US1] Concurrency test proving no code collision overwrites an existing link in `shortener/src/test/java/integration/CodeUniquenessTest.java` (FR-004, SC-005, R12)
 - [X] T020 [AGENT] [P] [US1] Failure test asserting a redirect whose count cannot be durably recorded fails rather than serving uncounted in `shortener/src/test/java/failure/RedirectRecordingFailureTest.java` (R14, approval record item 7)
 - [X] T021 [AGENT] [P] [US1] Unit tests for code generator alphabet, length, and bounded collision retry in `shortener/src/test/java/unit/CodeGeneratorTest.java` (FR-004, R12, VII)
-- [ ] T022 [HUMAN] [US1] Time-to-first-success validation — an untrained person creates and follows a short link, timed, recorded in `specs/001-agentic-url-shortener/baseline.md` (SC-001)
+- [X] T022 [HUMAN] [US1] Time-to-first-success validation — an untrained person creates and follows a short link, timed, recorded in `specs/001-agentic-url-shortener/baseline.md` (SC-001)
+
+> **T022 completed 2026-08-20 — HUMAN-EXECUTED.** The session was performed and timed by a human
+> participant; the elapsed time is human-provided and was not measured, inferred, or recomputed
+> by an agent, and no part of the participant's task was performed by an agent. Result recorded
+> in `specs/001-agentic-url-shortener/baseline.md`: untrained participant, no assistance,
+> **approximately 0.5 seconds** against SC-001's 30-second budget — **PASS**.
+>
+> Agent contribution was verification only, before and after: environment pre-flight
+> (`ops/smoke/t022-path-check.sh`) and six independent technical checks on the participant's own
+> link `Ii2L2v2` — short_link exists, destination matches, `redirect_count >= 1`,
+> `first_redirect_at` populated, matching `redirect_event` (id 12), and a live resolve returning
+> `302` to `https://www.google.com`.
 
 ### Implementation for User Story 1
 
@@ -509,11 +521,106 @@ and code it writes cannot escape the ephemeral test sandbox.
 > configuration URL; (4) the audit secret check inspected keys but not values. No change was made
 > to the approved egress architecture and no network product was added.
 
-- [ ] T100 [AGENT] Produce the traceability audit in `specs/001-agentic-url-shortener/traceability.md`, classifying every requirement as exactly one of `COVERED` (task, change, and validating test in both directions), `DEFERRED_APPROVED` (citing plan.md § Delivery Scope and tasks.md § Deferred Capabilities — FR-005 and FR-015 only), or `GAP`. Any `GAP` is a failure condition (FR-034, FR-035, III, SC-007)
-- [ ] T101 [AGENT] [P] Document public interfaces, retention behaviour, non-obvious decisions, and the deferred-capability register with re-entry cost, across all three surfaces in `docs/` (NFR-008, III, XI, X)
-- [ ] T102 [HUMAN] Run the security review — input validation, secret handling, least privilege, approver identity separation, agent capability boundary — recording findings in `specs/001-agentic-url-shortener/security-review.md` (NFR-006, FR-050, V)
-- [ ] T103 [HUMAN] Run the implemented scenarios in `specs/001-agentic-url-shortener/quickstart.md` end to end (quickstart.md)
-- [ ] T104 [HUMAN] Re-evaluate all thirteen gates in the Constitution Check of `specs/001-agentic-url-shortener/plan.md` before release readiness (XII, plan § Constitution Check)
+- [X] T100 [AGENT] Produce the traceability audit in `specs/001-agentic-url-shortener/traceability.md`, classifying every requirement as exactly one of `COVERED` (task, change, and validating test in both directions), `DEFERRED_APPROVED` (citing plan.md § Delivery Scope and tasks.md § Deferred Capabilities — FR-005 and FR-015 only), or `GAP`. Any `GAP` is a failure condition (FR-034, FR-035, III, SC-007)
+
+> **T100 closed 2026-08-20 as the final submission audit**, after T022, T102, T103 and T104 — held
+> open deliberately so it closes against the released state rather than a mid-flight one.
+> `docs/traceability/requirements-traceability.md` §8.
+>
+> **79 requirements · 77 COVERED · 2 DEFERRED_APPROVED (FR-005 custom aliases, FR-015 rate
+> limiting) · 0 GAP.** Re-verified at close: 79 spec requirements against 79 matrix rows with none
+> unclassified; 104/104 tasks complete; 26 HUMAN tasks all human-attributed; **zero** records of an
+> agent approving anything; deferred capabilities absent from the published OpenAPI; no Redis in
+> any manifest. Suites: orchestrator 280 (unit/workflow/failure/contract) + 176 (integration),
+> console 49 + typecheck clean, shortener unit 27.
+>
+> **Four findings carried into submission, all visible in §8.3:** the ten `(REQ)`-less supporting
+> tasks and the thin orchestrator `unit` layer (both ACCEPTED at T104, with explicit prohibitions
+> on back-fitting requirement ids or manufacturing test counts); T102's conditions remaining in
+> force for the local prototype only; and **one intermittent test failure observed once, whose
+> identity was not captured before re-running** — four subsequent full runs were clean. Recorded as
+> known intermittency of unknown identity rather than as a passing result.
+- [X] T101 [AGENT] [P] Document public interfaces, retention behaviour, non-obvious decisions, and the deferred-capability register with re-entry cost, across all three surfaces in `docs/` (NFR-008, III, XI, X)
+
+> **T101 completed 2026-08-20.** `docs/HLD.md` (problem, context, components, control/data-plane
+> split, autonomy and approval models, sandbox boundary, lineage, replanning, resilience,
+> observability, performance, trade-offs, why Redis was excluded, deployment assumptions,
+> limitations) and `docs/LLD.md` (module layout, state machine, TaskNode immutability,
+> OperationPolicy, fingerprint flow, clarification lifecycle, audit linkage, rollback and replan
+> algorithms, sandbox lifecycle, egress, schema, endpoint inventory, redirect sequence, error
+> model, test-layer mapping). `README.md` created: overview, architecture, run, test, the three
+> demo scenarios, and links to every evidence artifact. 11 Mermaid diagrams.
+>
+> **NFR-008 closed.** LLD §17 documents rationale — why it exists, who calls it, why the boundary
+> is shaped this way, why alternatives were rejected — for all six public interfaces: shortener
+> REST API, orchestrator REST API, model-visible tool set, database/service boundaries, approval
+> interface, console/API boundary. Traceability now **77 COVERED / 2 DEFERRED_APPROVED / 0 GAP**.
+> Documentation only; no runtime behaviour changed and Gate II is untouched.
+- [X] T102 [HUMAN] Run the security review — input validation, secret handling, least privilege, approver identity separation, agent capability boundary — recording findings in `specs/001-agentic-url-shortener/security-review.md` (NFR-006, FR-050, V)
+
+> **T102 completed 2026-08-20 — HUMAN-REVIEWED, APPROVED WITH CONDITIONS.** The review decision was
+> made by the human reviewer (Principal Engineer / Architecture Reviewer) and recorded in
+> `docs/security/security-review.md` §7. **No agent made or influenced the decision**; an agent
+> assembled the evidence package in §1–§6 only.
+>
+> **51 controls: 47 PASS, 4 ACCEPT-RISK, 0 FAIL.** The four accepted-risk controls are B7
+> (`X-Actor-Id` is demo identity, not authentication), E7 (Python egress guard is defense-in-depth;
+> the container is the untrusted-code boundary), G7 (thread timeout bounds the caller, not the
+> runaway thread), and I6 (plaintext password at `CREATE ROLE`). All ten §5 risks accepted with the
+> reviewer's stated basis recorded. **No new security defect was found.**
+>
+> **Six binding conditions** (§7.3), summarised: `X-Actor-Id` must never be described as production
+> authentication; no shared or production deployment without real auth, TLS and console access
+> control; the egress guard must continue to be described as defense-in-depth; rate limiting remains
+> an approved deferral rather than a missing control; local credentials must not be presented as
+> production practice; and no accepted risk may be silently removed from the documentation.
+> A documentation change that weakens any condition invalidates the approval and requires a fresh
+> human review.
+- [X] T103 [HUMAN] Run the implemented scenarios in `specs/001-agentic-url-shortener/quickstart.md` end to end (quickstart.md)
+
+> **T103 completed 2026-08-20 — HUMAN-EXECUTED.** Every PASS/FAIL/N/A was observed and decided by
+> the human reviewer; an agent presented the checklist, extracted commands verbatim from
+> `README.md`, diagnosed reported failures, and made documentation edits under direction. **No
+> agent executed a validation step on the reviewer's behalf.** Record:
+> `docs/validation/quickstart-validation.md`.
+>
+> **T103 did not pass on the first attempt — it exposed environment and documentation weaknesses,
+> which were corrected and then revalidated cleanly.** Two invalidated attempts: (1) stale database
+> containers carrying non-README credentials, where `/health` returned 200 while every DB-backed
+> endpoint returned 500 and `E4` returned 500 instead of 404; (2) a stale process on `:8000`
+> (PID 54311) that prevented the fresh orchestrator from binding. Both were environment faults —
+> **no runtime defect was found, and no runtime or OpenAPI change was made.** Two further faults
+> were operator-side: a broken line continuation that stopped `SHORTENER_DB_URL` reaching the JVM,
+> and an unset `$CODE` at D4.
+>
+> **Six README corrections resulted:** explicit disposable-container reset; credential-aware
+> host-side database verification; liveness (`/health`) vs readiness (`/v1/runs`) distinction;
+> deterministic readiness loop; unknown-run 404 negative control; and the documented
+> unknown-parent collection-endpoint limitation (human decision: keep current behaviour, record as
+> API semantic debt, change nothing during T103).
+>
+> Clean rerun: sections A–I all required checks **PASS**. H11 **N/A** (T098 baseline retained).
+> Accepted limitations recorded in the validation record §10, including A5 and five H test counts
+> **not captured** — deliberately recorded as not captured rather than reconstructed.
+- [X] T104 [HUMAN] Re-evaluate all thirteen gates in the Constitution Check of `specs/001-agentic-url-shortener/plan.md` before release readiness (XII, plan § Constitution Check)
+
+> **T104 completed 2026-08-20 — HUMAN-REVIEWED, PASS: release-ready for the take-home prototype.**
+> The thirteen gate decisions and the release decision were made by the human reviewer and are
+> recorded in `docs/validation/constitution-review.md` §4–§5. **No agent made, influenced, or
+> recorded any of them**; an agent assembled the evidence in §1–§3 only.
+>
+> **13 gates re-evaluated: 12 PASS · 1 N-A (Gate V-a, no server-side URL fetch) · 0 FAIL.**
+> **Gate II remains valid and requires no re-approval** — the six T103 README corrections are
+> documentation-only; no runtime architecture and no OpenAPI/public contract changed during T103
+> or T104. Traceability at close: **79 total / 77 COVERED / 2 DEFERRED_APPROVED / 0 GAP**.
+>
+> **Four reviewer decisions, carried as standing constraints:** (1) the ten supporting tasks
+> without `(REQ)` ids are **ACCEPTED** — requirement ids must **not** be back-fitted for cosmetic
+> traceability; (2) the thin orchestrator `unit` layer is **ACCEPTED** as a test-organization
+> limitation, to be preserved in documentation — unit-test counts must **not** be manufactured for
+> appearance; (3) T102 remains **APPROVED WITH CONDITIONS**, all ten accepted risks and six binding
+> conditions in force, **for the local take-home prototype only and not for shared or production
+> deployment**; (4) release readiness **PASS**.
 
 ---
 
